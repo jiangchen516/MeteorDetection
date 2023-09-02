@@ -1,0 +1,5 @@
+# Project exclude paths
+__pycache__/
+.idea/
+ouputs/
+de421.bsp
