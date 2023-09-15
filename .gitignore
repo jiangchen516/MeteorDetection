@@ -3,3 +3,5 @@ __pycache__/
 .idea/
 outputs/
 de421.bsp
+data/
+test/
