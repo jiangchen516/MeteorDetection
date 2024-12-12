@@ -9,11 +9,13 @@ def rectify_images(image_folder, rect_folder):
     if not os.path.exists(rect_folder):
         os.makedirs(rect_folder)
 
-    for filename in tqdm(os.listdir(image_folder), desc='Rectifying fisheye images...'):
+    pbar = tqdm(os.listdir(image_folder), desc='Rectifying fisheye images...') 
+    for filename in os.listdir(image_folder):
         if filename.endswith('.jpg') or filename.endswith('.png'):
             input_path = os.path.join(image_folder, filename)
             output_path = os.path.join(rect_folder, filename)
             rectify_fisheye(input_path, output_path)
+            pbar.update(1)
 
 def merge_rectified_images(rect_folder, merge_path):
     # Merge the rectified images
@@ -26,9 +28,9 @@ def select_roi(image_path, coords_file):
     selector.run()
 
 def main():
-    image_folder = '/workspaces/MeteorDection/test/merge_tests'
-    rect_folder = '/workspaces/MeteorDection/test/rectify_test'
-    merge_path = '/workspaces/MeteorDection/test/merged_rectified.jpg'
+    image_folder = 'test/merge_tests'
+    rect_folder = 'test/rectify_test'
+    merge_path = 'test/merged_rectified.jpg'
 
     # rectify_images(image_folder, rect_folder)
     # merge_rectified_images(rect_folder, merge_path)

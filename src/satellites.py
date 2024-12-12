@@ -1,4 +1,4 @@
-# pylint: disable=line-too-long
+# pylint: skip-file
 import Data
 import datetime
 from geopy.geocoders import Nominatim
@@ -21,6 +21,7 @@ stop_time = start_time + datetime.timedelta(days=1)
 site_name = "Beijing"
 # polaris coordinates(RA, Dec)
 star_coord = (2.530301, 89.264109)
+FOV = 0.5 # field of view in degrees
 
 def main():
     """
@@ -145,8 +146,8 @@ def check_if_cross(satellites, coord, obs_site):
             # Calculate angular distance (in DEGREES) between satellite and the calibration stellar coordinate
             ang_sep = pyasl.getAngDist(
                 ra._degrees, dec._degrees, coord.ra.value, coord.dec.value)
-            if ang_sep <= 0.5:
-                print(f"{satellite.name} crosses the calibration star at {working_time.utc_datetime()}")
+            if ang_sep <= FOV / 2.0:
+                print(f"{satellite.name} crosses the calibration star at {working_time.utc_datetime()} within the FOV of {FOV} degrees.")
                 crossed_satellites.append(satellite.name)
                 break
 
