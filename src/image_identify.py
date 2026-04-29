@@ -9,6 +9,7 @@ import numpy as np
 from PIL import ImageDraw
 import csv
 import astroalign as aa
+from config import METEOR_DETECTION, HOUGH_LINE_PARAMS, LINE_DETECTION_OUTPUT
 
 class ImageSelector:
     def __init__(self, img_dir, background_img, coords_file, output_path) -> None:
@@ -78,11 +79,12 @@ class ImageSelector:
         high_threshold = 150
         edges = cv2.Canny(blur_gray, low_threshold, high_threshold, apertureSize=3)
 
-        rho = 0.1  # distance resolution in pixels of the Hough grid
-        theta = 0.1*np.pi / 180  # angular resolution in radians of the Hough grid
-        threshold = 1  # minimum number of votes (intersections in Hough grid cell)
-        min_line_length = 1  # minimum number of pixels making up a line
-        max_line_gap = 1  # maximum gap in pixels between connectable line segments
+        # 使用配置参数优化Hough变换
+        rho = HOUGH_LINE_PARAMS['rho']
+        theta = HOUGH_LINE_PARAMS['theta']
+        threshold = HOUGH_LINE_PARAMS['threshold']
+        min_line_length = HOUGH_LINE_PARAMS['min_line_length']
+        max_line_gap = HOUGH_LINE_PARAMS['max_line_gap']
         line_image = np.copy(img) * 0  # creating a blank to draw lines on
 
         # Run Hough on edge detected image
@@ -101,14 +103,16 @@ class ImageSelector:
         axes[2].set_title('Canny Edges')
         
         line_count = 0
+        valid_lines = []
         if lines is not None:
             for line in lines:
                 for x1,y1,x2,y2 in line:
-                    m_line, b_line = self.fit_line(x1, y1, x2, y2)
-                    if abs(m_line - m) < 0.1 and abs(b_line - b) < 50:
+                    # 验证是否为流星
+                    if self.validate_meteor_line(x1, y1, x2, y2, m, b):
                         print(f'Line detected: {m_line}, {b_line}')
                         cv2.rectangle(line_image,(x1,y1),(x2,y2),(255,0,0),2)
                         line_count += 1
+                        valid_lines.append((x1, y1, x2, y2))
             lines_edges = cv2.addWeighted(img, 0.8, line_image, 1, 0)
             axes[3].imshow(lines_edges, cmap='gray')
             axes[3].set_title(f'Detected Lines ({line_count})')
@@ -157,6 +161,28 @@ class ImageSelector:
         m = (y2 - y1) / (x2 - x1)
         b = y1 - m * x1
         return m, b
+
+    def validate_meteor_line(self, x1, y1, x2, y2, expected_m, expected_b):
+        """
+        验证检测到的直线是否符合流星特征
+        """
+        # 1. 斜率验证
+        m_line, b_line = self.fit_line(x1, y1, x2, y2)
+        if abs(m_line - expected_m) >= METEOR_DETECTION['slope_tolerance']:
+            return False
+
+        # 2. 长度验证（流星通常较长）
+        line_length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        if line_length < METEOR_DETECTION['min_line_length']:
+            return False
+
+        # 3. 长宽比验证
+        line_width = 2  # 假设线条宽度为2像素
+        aspect_ratio = line_length / line_width
+        if aspect_ratio < METEOR_DETECTION['min_aspect_ratio']:
+            return False
+
+        return True
 
     def remove_noise_from_light_image(self, light_image, background_image, coords):
         x1, y1, x2, y2 = coords
