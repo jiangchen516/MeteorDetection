@@ -15,6 +15,12 @@ from core.utils.exif_reader import read_exif
 from core.utils.image_io import auto_load, list_images, save_image
 from core.utils.logging import get_logger
 from core.utils.visualization import draw_detections
+from core.classification.meteor_classifier import (
+    extract_trajectory_features,
+    classify_trajectory,
+    classify_single_detection,
+    ObjectClass,
+)
 
 logger = get_logger(__name__)
 
@@ -147,6 +153,19 @@ class MeteorPipeline:
             # 轨迹跟踪
             lines = [(r["x1"], r["y1"], r["x2"], r["y2"]) for r in results]
             self.tracker.update(lines, i)
+
+        # 分类确认的流星
+        self._report("Classifying trajectories", 0.95)
+        for meteor in self.tracker.confirmed_meteors:
+            features = extract_trajectory_features(meteor["points"])
+            classification = classify_trajectory(features)
+            meteor["classification"] = classification.object_class.value
+            meteor["classification_confidence"] = classification.confidence
+            meteor["classification_reasons"] = classification.reasons
+            logger.info(
+                f"Trajectory {meteor['id']}: {classification.object_class.value} "
+                f"(conf={classification.confidence:.2f})"
+            )
 
         self._report("Batch complete", 1.0)
         return all_results

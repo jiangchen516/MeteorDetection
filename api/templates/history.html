@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}历史记录 — 流星探测{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>🔍 历史记录搜索</h2>
+    <form id="searchForm" style="margin-top: 1rem;">
+        <div class="grid-2">
+            <div>
+                <label style="color:#8090ff;display:block;margin-bottom:0.3rem;">类型</label>
+                <select name="object_class" style="background:#1a1a3a;border:1px solid #2a2a4a;padding:0.5rem;border-radius:6px;color:#e0e0e0;">
+                    <option value="">全部</option>
+                    <option value="meteor">流星</option>
+                    <option value="satellite">卫星</option>
+                    <option value="airplane">飞机</option>
+                    <option value="noise">噪点</option>
+                </select>
+            </div>
+            <div>
+                <label style="color:#8090ff;display:block;margin-bottom:0.3rem;">最低置信度</label>
+                <input type="number" name="min_confidence" value="0" min="0" max="1" step="0.1"
+                       style="background:#1a1a3a;border:1px solid #2a2a4a;padding:0.5rem;border-radius:6px;color:#e0e0e0;width:100%;">
+            </div>
+            <div>
+                <label style="color:#8090ff;display:block;margin-bottom:0.3rem;">开始日期</label>
+                <input type="date" name="date_from"
+                       style="background:#1a1a3a;border:1px solid #2a2a4a;padding:0.5rem;border-radius:6px;color:#e0e0e0;width:100%;">
+            </div>
+            <div>
+                <label style="color:#8090ff;display:block;margin-bottom:0.3rem;">结束日期</label>
+                <input type="date" name="date_to"
+                       style="background:#1a1a3a;border:1px solid #2a2a4a;padding:0.5rem;border-radius:6px;color:#e0e0e0;width:100%;">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">搜索</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>📊 搜索结果 <span id="resultCount" style="color:#666;font-size:0.9rem;"></span></h2>
+    <div id="searchResults">
+        <div class="empty">
+            <p>使用上方筛选条件搜索检测结果</p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('searchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const params = new URLSearchParams();
+    if (form.object_class.value) params.set('object_class', form.object_class.value);
+    if (form.min_confidence.value) params.set('min_confidence', form.min_confidence.value);
+    if (form.date_from.value) params.set('date_from', form.date_from.value);
+    if (form.date_to.value) params.set('date_to', form.date_to.value);
+
+    const resp = await fetch('/api/tasks/search/detections?' + params.toString());
+    const data = await resp.json();
+
+    document.getElementById('resultCount').textContent = `(${data.count} 条结果)`;
+
+    const container = document.getElementById('searchResults');
+    if (data.results.length === 0) {
+        container.innerHTML = '<div class="empty"><p>无匹配结果</p></div>';
+        return;
+    }
+
+    let html = '<table><thead><tr>' +
+        '<th>时间</th><th>类型</th><th>坐标</th><th>亮度</th><th>置信度</th>' +
+        '</tr></thead><tbody>';
+
+    for (const r of data.results) {
+        const cls = r.object_class || 'unknown';
+        const clsBadge = {
+            meteor: 'badge-success',
+            satellite: 'badge-running',
+            airplane: 'badge-pending',
+            noise: 'badge-failed',
+        }[cls] || 'badge-cancelled';
+
+        html += `<tr>
+            <td>${r.task_time || '-'}</td>
+            <td><span class="badge ${clsBadge}">${cls}</span></td>
+            <td>(${r.x1},${r.y1})-(${r.x2},${r.y2})</td>
+            <td>${r.brightness?.toFixed(0) || '-'}</td>
+            <td>${r.confidence?.toFixed(2) || '-'}</td>
+        </tr>`;
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+});
+</script>
+{% endblock %}

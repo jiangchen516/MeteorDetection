@@ -64,8 +64,21 @@ def init_db() -> None:
             FOREIGN KEY (task_id) REFERENCES tasks(id)
         );
 
+        CREATE TABLE IF NOT EXISTS classifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            detection_id INTEGER,
+            task_id TEXT NOT NULL,
+            object_class TEXT NOT NULL DEFAULT 'unknown',
+            confidence REAL DEFAULT 0.0,
+            reasons TEXT DEFAULT '[]',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (task_id) REFERENCES tasks(id)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_detections_task_id ON detections(task_id);
         CREATE INDEX IF NOT EXISTS idx_task_logs_task_id ON task_logs(task_id);
+        CREATE INDEX IF NOT EXISTS idx_classifications_task_id ON classifications(task_id);
+        CREATE INDEX IF NOT EXISTS idx_classifications_class ON classifications(object_class);
     """)
     conn.commit()
     conn.close()
@@ -155,5 +168,77 @@ def get_logs(task_id: str, limit: int = 200) -> list[dict]:
         "SELECT * FROM task_logs WHERE task_id = ? ORDER BY created_at DESC LIMIT ?",
         (task_id, limit),
     ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_classification(
+    task_id: str,
+    object_class: str,
+    confidence: float,
+    reasons: str = "[]",
+    detection_id: int | None = None,
+) -> None:
+    conn = get_connection()
+    conn.execute(
+        """
+        INSERT INTO classifications (detection_id, task_id, object_class, confidence, reasons)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (detection_id, task_id, object_class, confidence, reasons),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_classifications(task_id: str) -> list[dict]:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM classifications WHERE task_id = ?", (task_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def search_detections(
+    object_class: str | None = None,
+    min_confidence: float = 0.0,
+    min_brightness: float = 0.0,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict]:
+    """搜索检测结果."""
+    conn = get_connection()
+    conditions = ["d.confidence >= ?", "d.brightness >= ?"]
+    params: list = [min_confidence, min_brightness]
+
+    if object_class:
+        conditions.append("c.object_class = ?")
+        params.append(object_class)
+
+    if date_from:
+        conditions.append("t.created_at >= ?")
+        params.append(date_from)
+
+    if date_to:
+        conditions.append("t.created_at <= ?")
+        params.append(date_to)
+
+    where = " AND ".join(conditions)
+    query = f"""
+        SELECT d.*, t.task_type, t.created_at as task_time,
+               c.object_class, c.confidence as class_confidence
+        FROM detections d
+        JOIN tasks t ON d.task_id = t.id
+        LEFT JOIN classifications c ON c.task_id = t.id AND c.detection_id = d.id
+        WHERE {where}
+        ORDER BY d.confidence DESC
+        LIMIT ? OFFSET ?
+    """
+    params.extend([limit, offset])
+
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]

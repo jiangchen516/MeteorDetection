@@ -113,3 +113,48 @@ def process_batch(self, image_dir: str, background_path: str | None = None,
         logger.exception(f"Batch processing failed: {e}")
         _update_task(task_id=task_id, status="FAILED", message=str(e))
         raise
+
+
+@app.task(bind=True, name="worker.tasks.start_realtime")
+def start_realtime(self, watch_dir: str, background_path: str | None = None,
+                   output_dir: str | None = None, poll_interval: float = 2.0) -> dict:
+    """启动实时检测."""
+    task_id = self.request.id
+    setup_logging()
+
+    _update_task(task_id=task_id, task_type="realtime", status="RUNNING",
+                 message=f"Watching {watch_dir}", progress=0.0)
+
+    try:
+        from core.utils.config import get_path
+        from worker.runners.realtime import RealtimeDetector
+
+        if output_dir is None:
+            output_dir = str(get_path("storage_dir") / "results" / task_id)
+
+        def on_detection(image_path: str, results: list):
+            for r in results:
+                _add_detection(task_id, r)
+
+        def on_meteor(meteor_info: dict):
+            _add_detection(task_id, meteor_info)
+
+        detector = RealtimeDetector(
+            watch_dir=watch_dir,
+            output_dir=output_dir,
+            background_path=background_path,
+            poll_interval=poll_interval,
+            on_detection=on_detection,
+            on_meteor=on_meteor,
+        )
+
+        # 注意：这会阻塞，直到 stop_realtime 被调用
+        detector.start()
+
+        _update_task(task_id=task_id, status="SUCCESS", message="Realtime stopped")
+        return {"status": "stopped"}
+
+    except Exception as e:
+        logger.exception(f"Realtime detection failed: {e}")
+        _update_task(task_id=task_id, status="FAILED", message=str(e))
+        raise

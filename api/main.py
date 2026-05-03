@@ -53,3 +53,8 @@ async def task_detail(request: Request, task_id: str):
 @app.get("/upload")
 async def upload_page(request: Request):
     return templates.TemplateResponse(request, "upload.html", {})
+
+
+@app.get("/history")
+async def history_page(request: Request):
+    return templates.TemplateResponse(request, "history.html", {})

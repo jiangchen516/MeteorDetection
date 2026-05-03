@@ -3,9 +3,12 @@
 from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException
 
-from api.models.database import get_task, get_detections, get_logs, list_tasks, upsert_task
+from api.models.database import (
+    get_task, get_detections, get_logs, list_tasks, upsert_task,
+    search_detections, get_classifications,
+)
 from api.models.schemas import TaskResponse, TaskDetail, TaskCreate, DetectionResult
-from worker.tasks import process_single, process_batch
+from worker.tasks import process_single, process_batch, start_realtime
 
 router = APIRouter()
 
@@ -96,6 +99,56 @@ async def cancel_task(task_id: str):
     from api.models.database import upsert_task
     upsert_task(task_id=task_id, status="CANCELLED", message="Cancelled by user")
     return {"status": "cancelled"}
+
+
+@router.get("/search/detections")
+async def search_detections_api(
+    object_class: str | None = None,
+    min_confidence: float = 0.0,
+    min_brightness: float = 0.0,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """搜索检测结果."""
+    results = search_detections(
+        object_class=object_class,
+        min_confidence=min_confidence,
+        min_brightness=min_brightness,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
+    return {"results": results, "count": len(results)}
+
+
+@router.post("/{task_id}/realtime")
+async def start_realtime_api(
+    task_id: str,
+    watch_dir: str,
+    background_path: str | None = None,
+    output_dir: str | None = None,
+    poll_interval: float = 2.0,
+):
+    """启动实时检测任务."""
+    upsert_task(
+        task_id=task_id,
+        task_type="realtime",
+        status="PENDING",
+        message=f"Watching {watch_dir}",
+    )
+    start_realtime.apply_async(
+        args=[watch_dir],
+        kwargs={
+            "background_path": background_path,
+            "output_dir": output_dir,
+            "poll_interval": poll_interval,
+        },
+        task_id=task_id,
+    )
+    return {"task_id": task_id, "status": "PENDING"}
 
 
 def _task_to_response(task: dict | None) -> TaskResponse:
