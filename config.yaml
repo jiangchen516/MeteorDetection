@@ -1,0 +1,75 @@
+# 流星探测项目配置
+
+# 基础目录（运行时自动解析为绝对路径）
+paths:
+  base_dir: .
+  outputs_dir: outputs
+  data_dir: data
+  test_dir: test
+  storage_dir: storage
+
+# 测试数据路径
+test_paths:
+  rectify_test_dir: test/rectify_test
+  merge_test_dir: test/merge_tests
+  rectified_images_dir: test/rectify_test
+  merged_image_path: test/merged_rectified.jpg
+  coords_file: outputs/coords.csv
+  line_detection_output: test/line_detection
+
+# Hough 直线检测参数
+hough_line:
+  rho: 1
+  theta: 0.017453292519943295  # pi / 180
+  threshold: 30
+  min_line_length: 30
+  max_line_gap: 10
+
+# 流星检测参数
+meteor_detection:
+  min_line_length: 30
+  max_line_gap: 10
+  min_brightness: 100
+  min_aspect_ratio: 10
+  # 评分阈值（0-1），综合评分超过此值才认为是候选流星
+  score_threshold: 0.5
+  # 各评分项权重
+  score_weights:
+    length: 0.3
+    brightness: 0.4
+    aspect_ratio: 0.3
+
+# 轨迹跟踪参数
+tracking:
+  max_frames: 5
+  max_gap: 2
+  min_trajectory_length: 3
+  linearity_threshold: 0.8
+
+# 背景建模参数
+background:
+  history: 50
+  threshold: 30
+  learning_rate: 0.01
+
+# 鱼眼校正参数
+fisheye:
+  dtype: linear
+  format: fullframe
+  fov: 180
+  pfov: 120
+
+# AI 模型参数
+model:
+  model_dir: data/trt_fp16_dir/saved_model
+  label_map: data/labelmap.txt
+  input_size: 640
+  confidence_threshold: 0.1
+
+# 日志参数
+logging:
+  level: DEBUG
+  console_level: INFO
+  log_dir: storage/logs
+  max_bytes: 10485760  # 10MB
+  backup_count: 5

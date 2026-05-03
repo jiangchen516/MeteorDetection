@@ -1,8 +1,16 @@
 # Project exclude paths
 __pycache__/
 .idea/
+.venv/
+*.pyc
+.pytest_cache/
+
+# Data
 outputs/
-de421.bsp
 data/
 test/
-test.py
+
+# Storage (runtime)
+storage/
+logs/
+*.log
