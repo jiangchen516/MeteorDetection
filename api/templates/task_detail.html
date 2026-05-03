@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}任务详情 — 流星探测{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>📋 任务详情 — {{ task.id[:8] if task else 'N/A' }}...</h2>
+    {% if task %}
+    <div class="grid-2">
+        <div>
+            <p><strong>类型:</strong> {{ task.task_type }}</p>
+            <p><strong>状态:</strong> <span class="badge badge-{{ task.status|lower }}">{{ task.status }}</span></p>
+            <p><strong>创建时间:</strong> {{ task.created_at or '-' }}</p>
+        </div>
+        <div>
+            <p><strong>进度:</strong> {{ "%.0f"|format((task.progress or 0) * 100) }}%</p>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ (task.progress or 0) * 100 }}%"></div>
+            </div>
+            <p><strong>消息:</strong> {{ task.message or '-' }}</p>
+        </div>
+    </div>
+
+    {% if task.status == 'RUNNING' %}
+    <div style="margin-top: 1rem;">
+        <button class="btn btn-danger" hx-post="/api/tasks/{{ task.id }}/cancel" hx-swap="none">取消任务</button>
+    </div>
+    {% endif %}
+    {% else %}
+    <p class="empty">任务不存在</p>
+    {% endif %}
+</div>
+
+{% if detections %}
+<div class="card">
+    <h2>☄️ 检测结果 ({{ detections|length }})</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>坐标</th>
+                <th>亮度</th>
+                <th>置信度</th>
+                <th>评分</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in detections[:50] %}
+            <tr>
+                <td>({{ d.x1 }},{{ d.y1 }}) → ({{ d.x2 }},{{ d.y2 }})</td>
+                <td>{{ "%.0f"|format(d.brightness) }}</td>
+                <td>{{ "%.2f"|format(d.confidence) }}</td>
+                <td>{{ "%.2f"|format(d.score) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if detections|length > 50 %}
+    <p style="margin-top: 0.5rem; color: #666;">显示前 50 条，共 {{ detections|length }} 条</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if logs %}
+<div class="card">
+    <h2>📝 日志</h2>
+    <div class="log-viewer">
+        {% for log in logs[:100] %}
+        <div class="log-line">{{ log }}</div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<script>
+// 运行中任务自动刷新日志
+{% if task and task.status == 'RUNNING' %}
+setInterval(() => {
+    window.location.reload();
+}, 5000);
+{% endif %}
+</script>
+{% endblock %}

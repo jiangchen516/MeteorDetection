@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}流星探测{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a1a; color: #e0e0e0; min-height: 100vh; }
+        .navbar { background: #12122a; padding: 1rem 2rem; display: flex; gap: 2rem; align-items: center; border-bottom: 1px solid #2a2a4a; }
+        .navbar a { color: #8090ff; text-decoration: none; font-weight: 500; }
+        .navbar a:hover { color: #a0b0ff; }
+        .navbar .brand { font-size: 1.3rem; font-weight: 700; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .card { background: #161630; border: 1px solid #2a2a4a; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .card h2 { color: #a0b0ff; margin-bottom: 1rem; font-size: 1.1rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #2a2a4a; }
+        th { color: #8090ff; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+        td { font-size: 0.9rem; }
+        tr:hover { background: #1a1a3a; }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+        .badge-pending { background: #3a3a1a; color: #cccc66; }
+        .badge-running { background: #1a3a5a; color: #66aaff; }
+        .badge-success { background: #1a3a1a; color: #66cc66; }
+        .badge-failed { background: #3a1a1a; color: #cc6666; }
+        .badge-cancelled { background: #2a2a2a; color: #888; }
+        .progress-bar { height: 6px; background: #2a2a4a; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #4060ff, #80a0ff); transition: width 0.3s; }
+        .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+        .btn-primary { background: #4060ff; color: #fff; }
+        .btn-primary:hover { background: #5070ff; }
+        .btn-danger { background: #cc3333; color: #fff; }
+        .btn-danger:hover { background: #dd4444; }
+        .upload-zone { border: 2px dashed #4060ff; border-radius: 8px; padding: 3rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .upload-zone:hover { background: #1a1a3a; border-color: #6080ff; }
+        .upload-zone.dragover { background: #202050; border-color: #80a0ff; }
+        .log-viewer { background: #0a0a1a; border: 1px solid #2a2a4a; border-radius: 6px; padding: 1rem; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; }
+        .log-line { padding: 0.2rem 0; border-bottom: 1px solid #161630; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .empty { text-align: center; padding: 3rem; color: #666; }
+        a { color: #8090ff; }
+        a:hover { color: #a0b0ff; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <span class="brand">☄️ 流星探测</span>
+        <a href="/dashboard">任务看板</a>
+        <a href="/upload">上传检测</a>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

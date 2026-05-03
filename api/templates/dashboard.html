@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}任务看板 — 流星探测{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>📋 任务列表</h2>
+    {% if tasks %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>进度</th>
+                <th>消息</th>
+                <th>结果数</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr>
+                <td><a href="/tasks/{{ task.id }}">{{ task.id[:8] }}...</a></td>
+                <td>{{ task.task_type }}</td>
+                <td><span class="badge badge-{{ task.status|lower }}">{{ task.status }}</span></td>
+                <td>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ (task.progress or 0) * 100 }}%"></div>
+                    </div>
+                </td>
+                <td>{{ task.message or '-' }}</td>
+                <td>{{ task.result_count or 0 }}</td>
+                <td>{{ task.created_at or '-' }}</td>
+                <td>
+                    {% if task.status == 'RUNNING' %}
+                    <button class="btn btn-danger" hx-post="/api/tasks/{{ task.id }}/cancel" hx-swap="none">取消</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+        <p>暂无任务</p>
+        <p><a href="/upload">上传图片开始检测</a></p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>🚀 快速开始</h2>
+    <p><a href="/upload">上传图片</a> 或使用 API 创建任务：</p>
+    <pre style="background:#0a0a1a;padding:1rem;border-radius:6px;margin-top:0.5rem;font-size:0.85rem;">
+curl -X POST http://localhost:8000/api/tasks/ \
+  -H "Content-Type: application/json" \
+  -d '{"task_type":"batch","params":{"image_dir":"/path/to/images"}}'
+    </pre>
+</div>
+
+<script>
+// 自动刷新运行中的任务
+setInterval(() => {
+    const running = document.querySelectorAll('.badge-running');
+    if (running.length > 0) {
+        htmx.trigger('body', 'refreshTasks');
+    }
+}, 3000);
+</script>
+{% endblock %}

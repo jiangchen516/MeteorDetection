@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}上传检测 — 流星探测{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>📤 上传图片</h2>
+    <div style="margin-top: 1rem;">
+        <h3 style="margin-bottom: 0.5rem; color: #a0b0ff;">方式一：Web 上传</h3>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="upload-zone" id="dropZone"
+                 onclick="document.getElementById('fileInput').click()">
+                <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">📁 点击或拖拽图片到此处</p>
+                <p style="color: #666; font-size: 0.9rem;">支持 JPG、PNG 格式</p>
+                <input type="file" id="fileInput" name="files" multiple accept="image/*"
+                       style="display:none" onchange="handleFiles(this.files)">
+            </div>
+            <div id="fileList" style="margin-top: 1rem;"></div>
+            <div style="margin-top: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; color: #8090ff;">背景图片（可选）</label>
+                <input type="file" name="background" accept="image/*"
+                       style="background: #1a1a3a; border: 1px solid #2a2a4a; padding: 0.5rem; border-radius: 6px; color: #e0e0e0;">
+            </div>
+            <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+                <button type="button" class="btn btn-primary" onclick="submitSingle()">单张检测</button>
+                <button type="button" class="btn btn-primary" onclick="submitBatch()">批量检测</button>
+            </div>
+        </form>
+        <div id="result" style="margin-top: 1rem;"></div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin-bottom: 0.5rem; color: #a0b0ff;">方式二：API 调用</h3>
+    <pre style="background:#0a0a1a;padding:1rem;border-radius:6px;font-size:0.85rem;overflow-x:auto;">
+# 单张检测
+curl -X POST http://localhost:8000/api/tasks/ \
+  -H "Content-Type: application/json" \
+  -d '{"task_type":"single","params":{"image_path":"/path/to/image.jpg","background_path":"/path/to/bg.jpg"}}'
+
+# 批量检测
+curl -X POST http://localhost:8000/api/tasks/ \
+  -H "Content-Type: application/json" \
+  -d '{"task_type":"batch","params":{"image_dir":"/path/to/images"}}'
+    </pre>
+</div>
+
+<script>
+const uploadedFiles = [];
+
+function handleFiles(files) {
+    const list = document.getElementById('fileList');
+    list.innerHTML = '';
+    uploadedFiles.length = 0;
+    for (const f of files) {
+        uploadedFiles.push(f);
+        list.innerHTML += `<p>📄 ${f.name} (${(f.size/1024).toFixed(1)} KB)</p>`;
+    }
+}
+
+function submitSingle() {
+    if (uploadedFiles.length === 0) {
+        alert('请先选择图片');
+        return;
+    }
+    const formData = new FormData();
+    formData.append('file', uploadedFiles[0]);
+    fetch('/api/upload/', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            // 创建检测任务
+            return fetch('/api/tasks/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    task_type: 'single',
+                    params: {image_path: data.path, background: data.background}
+                })
+            });
+        })
+        .then(r => r.json())
+        .then(task => {
+            document.getElementById('result').innerHTML =
+                `<p style="color:#66cc66;">✅ 任务已创建: <a href="/tasks/${task.id}">${task.id[:8]}...</a></p>`;
+        })
+        .catch(e => {
+            document.getElementById('result').innerHTML =
+                `<p style="color:#cc6666;">❌ 错误: ${e}</p>`;
+        });
+}
+
+function submitBatch() {
+    if (uploadedFiles.length === 0) {
+        alert('请先选择图片');
+        return;
+    }
+    const formData = new FormData();
+    for (const f of uploadedFiles) {
+        formData.append('files', f);
+    }
+    fetch('/api/upload/batch', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            alert(`已上传 ${data.count} 个文件`);
+        })
+        .catch(e => {
+            document.getElementById('result').innerHTML =
+                `<p style="color:#cc6666;">❌ 错误: ${e}</p>`;
+        });
+}
+
+// 拖拽支持
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
+</script>
+{% endblock %}
