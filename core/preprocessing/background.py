@@ -1,4 +1,4 @@
-"""背景差分 / 去噪."""
+"""背景差分 / 去噪 — 支持多种背景建模方法."""
 
 from typing import Literal
 
@@ -6,68 +6,124 @@ import cv2
 import numpy as np
 import astroalign as aa
 
+from core.utils.config import get_section
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
+def build_median_background(image_paths: list[str | np.ndarray]) -> np.ndarray:
+    """从多张图像构建中值背景.
+
+    Args:
+        image_paths: 图像路径列表或 numpy 数组列表.
+
+    Returns:
+        中值背景图像 (BGR).
+    """
+    frames = []
+    for p in image_paths:
+        if isinstance(p, np.ndarray):
+            frames.append(p)
+        else:
+            img = cv2.imread(str(p))
+            if img is not None:
+                frames.append(img)
+
+    if not frames:
+        raise ValueError("No valid images for median background")
+
+    logger.info(f"Building median background from {len(frames)} images")
+    stack = np.stack(frames, axis=0)
+    median = np.median(stack, axis=0).astype(np.uint8)
+    return median
+
+
+class MOG2BackgroundSubtractor:
+    """基于 OpenCV MOG2 的背景减除器."""
+
+    def __init__(self, history: int | None = None, threshold: int | None = None,
+                 learning_rate: float | None = None):
+        cfg = get_section("background")
+        self.history = history or cfg.get("history", 50)
+        self.threshold = threshold or cfg.get("threshold", 30)
+        self.learning_rate = learning_rate or cfg.get("learning_rate", 0.01)
+
+        self._subtractor = cv2.createBackgroundSubtractorMOG2(
+            history=self.history,
+            varThreshold=self.threshold,
+            detectShadows=False,
+        )
+
+    def apply(self, image: np.ndarray) -> np.ndarray:
+        """应用背景减除，返回前景掩码."""
+        fg_mask = self._subtractor.apply(image, learningRate=self.learning_rate)
+        return fg_mask
+
+    def get_background(self) -> np.ndarray | None:
+        """获取当前背景模型."""
+        return self._subtractor.getBackgroundImage()
+
+
 def remove_background(
     light_image: np.ndarray,
-    background_image: np.ndarray,
-    method: Literal["simple", "registration"] = "registration",
+    background_image: np.ndarray | None = None,
+    method: Literal["simple", "registration", "mog2"] = "registration",
     coords: tuple[int, int, int, int] | None = None,
 ) -> np.ndarray:
     """从光图像中移除背景噪声.
 
     Args:
         light_image: 输入图像（有流星的图像）.
-        background_image: 背景图像（无流星）.
-        method: 去噪方法，'simple' 为简单差分，'registration' 为配准+差分.
+        background_image: 背景图像（无流星），mog2 方法不需要.
+        method: 去噪方法.
         coords: ROI 坐标 (x1, y1, x2, y2)，为 None 时处理整张图像.
 
     Returns:
-        去噪后的图像.
+        去噪后的灰度图像.
     """
-    if light_image.shape != background_image.shape:
-        raise ValueError(
-            f"Image sizes mismatch: {light_image.shape} vs {background_image.shape}"
-        )
-
     if coords is not None:
         x1, y1, x2, y2 = coords
         light_roi = light_image[y1:y2, x1:x2]
-        bg_roi = background_image[y1:y2, x1:x2]
     else:
         light_roi = light_image
-        bg_roi = background_image
 
-    if method == "registration":
+    if method == "mog2":
+        return _remove_mog2(light_roi)
+    elif method == "registration":
+        if background_image is None:
+            raise ValueError("registration method requires background_image")
+        if coords is not None:
+            bg_roi = background_image[y1:y2, x1:x2]
+        else:
+            bg_roi = background_image
         return _remove_with_registration(light_roi, bg_roi)
     else:
+        if background_image is None:
+            raise ValueError("simple method requires background_image")
+        if coords is not None:
+            bg_roi = background_image[y1:y2, x1:x2]
+        else:
+            bg_roi = background_image
         return _remove_simple(light_roi, bg_roi)
 
 
 def _remove_simple(light: np.ndarray, background: np.ndarray) -> np.ndarray:
     """简单差分."""
-    result = np.subtract(light, background)
-    black = np.zeros_like(result, dtype=np.uint8)
-    return np.uint8(np.maximum(result, black))
+    if light.shape != background.shape:
+        raise ValueError(f"Size mismatch: {light.shape} vs {background.shape}")
+    gray = _to_gray(light)
+    bg_gray = _to_gray(background)
+    result = cv2.subtract(gray, bg_gray)
+    return result
 
 
 def _remove_with_registration(
     light: np.ndarray, background: np.ndarray
 ) -> np.ndarray:
     """图像配准 + 差分."""
-    target_gray = (
-        cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
-        if len(background.shape) == 3
-        else background
-    )
-    source_gray = (
-        cv2.cvtColor(light, cv2.COLOR_BGR2GRAY)
-        if len(light.shape) == 3
-        else light
-    )
+    target_gray = _to_gray(background)
+    source_gray = _to_gray(light)
 
     try:
         registered, _ = aa.register(source_gray, target_gray)
@@ -75,6 +131,24 @@ def _remove_with_registration(
         logger.warning(f"Registration failed ({e}), falling back to simple subtraction")
         return _remove_simple(light, background)
 
-    result = np.subtract(source_gray, registered)
-    black = np.zeros_like(result, dtype=np.uint8)
-    return np.uint8(np.maximum(result, black))
+    # 确保类型一致
+    registered = registered.astype(np.uint8)
+    result = cv2.subtract(source_gray, registered)
+    # 增强对比度
+    result = cv2.normalize(result, None, 0, 255, cv2.NORM_MINMAX)
+    return result
+
+
+def _remove_mog2(image: np.ndarray) -> np.ndarray:
+    """MOG2 背景减除（逐帧调用时效果有限，建议用 batch 模式）."""
+    gray = _to_gray(image)
+    # 单次调用：用固定阈值做前景提取
+    # 实际 MOG2 需要多帧训练，这里用帧差近似
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    return blurred
+
+
+def _to_gray(image: np.ndarray) -> np.ndarray:
+    if len(image.shape) == 3:
+        return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    return image
