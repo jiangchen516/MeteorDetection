@@ -15,6 +15,7 @@ app = FastAPI(title="流星探测", version="0.2.0")
 
 # 静态文件和模板
 app.mount("/static", StaticFiles(directory="api/static"), name="static")
+app.mount("/storage", StaticFiles(directory="storage"), name="storage")
 templates = Jinja2Templates(directory="api/templates")
 
 # 初始化数据库

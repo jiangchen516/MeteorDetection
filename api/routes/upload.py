@@ -55,4 +55,4 @@ async def upload_batch(
             shutil.copyfileobj(file.file, f)
         uploaded.append({"filename": file.filename, "path": str(file_path)})
 
-    return {"uploaded": uploaded, "count": len(uploaded)}
+    return {"uploaded": uploaded, "count": len(uploaded), "paths": [u["path"] for u in uploaded]}

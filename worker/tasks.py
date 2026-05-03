@@ -3,6 +3,7 @@
 import json
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 from worker.celery_app import app
 from core.utils.logging import get_logger, setup_logging
@@ -58,9 +59,11 @@ def process_single(self, image_path: str, background_path: str | None = None,
         for r in results:
             _add_detection(task_id, r)
 
+        annotated_path = str(Path(output_dir) / f"{Path(image_path).stem}_detected.jpg")
         _update_task(task_id=task_id, status="SUCCESS", progress=1.0,
                      message=f"Done: {len(results)} detections",
-                     result_count=len(results))
+                     result_count=len(results),
+                     result_image=annotated_path)
 
         return {"detections": len(results), "output_dir": output_dir}
 

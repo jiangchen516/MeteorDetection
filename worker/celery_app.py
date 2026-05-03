@@ -1,5 +1,11 @@
 """Celery 应用配置."""
 
+import sys
+from pathlib import Path
+
+# 确保项目根目录在 sys.path，使 api/ 等模块可导入
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from celery import Celery
 
 from core.utils.config import get_section, get_path

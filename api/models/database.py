@@ -36,6 +36,7 @@ def init_db() -> None:
             progress REAL DEFAULT 0.0,
             message TEXT DEFAULT '',
             result_count INTEGER DEFAULT 0,
+            result_image TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             params TEXT DEFAULT '{}'
@@ -92,21 +93,23 @@ def upsert_task(
     message: str = "",
     result_count: int = 0,
     params: str = "{}",
+    result_image: str = "",
 ) -> None:
     now = datetime.utcnow().isoformat()
     conn = get_connection()
     conn.execute(
         """
-        INSERT INTO tasks (id, task_type, status, progress, message, result_count, params, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tasks (id, task_type, status, progress, message, result_count, result_image, params, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             status=excluded.status,
             progress=excluded.progress,
             message=excluded.message,
             result_count=excluded.result_count,
+            result_image=excluded.result_image,
             updated_at=excluded.updated_at
         """,
-        (task_id, task_type, status, progress, message, result_count, params, now, now),
+        (task_id, task_type, status, progress, message, result_count, result_image, params, now, now),
     )
     conn.commit()
     conn.close()

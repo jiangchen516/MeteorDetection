@@ -29,12 +29,21 @@
     {% endif %}
 </div>
 
+{% if task and task.result_image %}
+<div class="card">
+    <h2>🖼️ 检测结果图</h2>
+    <img src="/api/tasks/{{ task.id }}/image" alt="检测结果标注图"
+         style="max-width: 100%; border-radius: 8px; border: 1px solid #2a2a4a;">
+</div>
+{% endif %}
+
 {% if detections %}
 <div class="card">
     <h2>☄️ 检测结果 ({{ detections|length }})</h2>
     <table>
         <thead>
             <tr>
+                <th>#</th>
                 <th>坐标</th>
                 <th>亮度</th>
                 <th>置信度</th>
@@ -44,6 +53,7 @@
         <tbody>
             {% for d in detections[:50] %}
             <tr>
+                <td>{{ loop.index }}</td>
                 <td>({{ d.x1 }},{{ d.y1 }}) → ({{ d.x2 }},{{ d.y2 }})</td>
                 <td>{{ "%.0f"|format(d.brightness) }}</td>
                 <td>{{ "%.2f"|format(d.confidence) }}</td>

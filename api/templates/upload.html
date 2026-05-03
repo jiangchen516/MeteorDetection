@@ -63,27 +63,35 @@ function submitSingle() {
     }
     const formData = new FormData();
     formData.append('file', uploadedFiles[0]);
+    const bgFile = document.querySelector('input[name="background"]')?.files?.[0];
+    if (bgFile) formData.append('background', bgFile);
+
     fetch('/api/upload/', { method: 'POST', body: formData })
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error('上传失败: ' + r.status);
+            return r.json();
+        })
         .then(data => {
-            // 创建检测任务
+            const params = {image_path: data.path};
+            if (data.background) params.background_path = data.background;
             return fetch('/api/tasks/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    task_type: 'single',
-                    params: {image_path: data.path, background: data.background}
-                })
+                body: JSON.stringify({task_type: 'single', params})
             });
         })
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error('创建任务失败: ' + r.status);
+            return r.json();
+        })
         .then(task => {
             document.getElementById('result').innerHTML =
-                `<p style="color:#66cc66;">✅ 任务已创建: <a href="/tasks/${task.id}">${task.id[:8]}...</a></p>`;
+                `<p style="color:#66cc66;">✅ 任务已创建: <a href="/tasks/${task.id}">${task.id.slice(0,8)}...</a></p>`;
         })
         .catch(e => {
             document.getElementById('result').innerHTML =
-                `<p style="color:#cc6666;">❌ 错误: ${e}</p>`;
+                `<p style="color:#cc6666;">❌ 错误: ${e.message || e}</p>`;
+            console.error(e);
         });
 }
 
@@ -97,13 +105,31 @@ function submitBatch() {
         formData.append('files', f);
     }
     fetch('/api/upload/batch', { method: 'POST', body: formData })
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error('上传失败: ' + r.status);
+            return r.json();
+        })
         .then(data => {
-            alert(`已上传 ${data.count} 个文件`);
+            if (!data.paths || data.paths.length === 0) throw new Error('没有获取到上传路径');
+            const image_dir = data.paths[0].substring(0, data.paths[0].lastIndexOf('/'));
+            return fetch('/api/tasks/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({task_type: 'batch', params: {image_dir}})
+            });
+        })
+        .then(r => {
+            if (!r.ok) throw new Error('创建任务失败: ' + r.status);
+            return r.json();
+        })
+        .then(task => {
+            document.getElementById('result').innerHTML =
+                `<p style="color:#66cc66;">✅ 批量任务已创建: <a href="/tasks/${task.id}">${task.id.slice(0,8)}...</a></p>`;
         })
         .catch(e => {
             document.getElementById('result').innerHTML =
-                `<p style="color:#cc6666;">❌ 错误: ${e}</p>`;
+                `<p style="color:#cc6666;">❌ 错误: ${e.message || e}</p>`;
+            console.error(e);
         });
 }
 

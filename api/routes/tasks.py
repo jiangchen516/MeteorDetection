@@ -2,6 +2,7 @@
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
 from api.models.database import (
     get_task, get_detections, get_logs, list_tasks, upsert_task,
@@ -91,6 +92,21 @@ async def get_task_detail(task_id: str):
     )
 
 
+@router.get("/{task_id}/image")
+async def get_task_image(task_id: str):
+    """获取任务标注图."""
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    image_path = task.get("result_image", "")
+    if not image_path:
+        raise HTTPException(404, "No result image")
+    from pathlib import Path
+    if not Path(image_path).exists():
+        raise HTTPException(404, "Image file not found")
+    return FileResponse(image_path, media_type="image/jpeg")
+
+
 @router.post("/{task_id}/cancel")
 async def cancel_task(task_id: str):
     """取消任务."""
@@ -161,4 +177,5 @@ def _task_to_response(task: dict | None) -> TaskResponse:
         progress=task.get("progress", 0),
         message=task.get("message", ""),
         result_count=task.get("result_count", 0),
+        result_image=task.get("result_image", ""),
     )

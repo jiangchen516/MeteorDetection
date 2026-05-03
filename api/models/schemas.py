@@ -36,6 +36,7 @@ class TaskResponse(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     params: dict[str, Any] = Field(default_factory=dict)
+    result_image: str = ""
 
 
 class DetectionResult(BaseModel):
