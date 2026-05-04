@@ -18,8 +18,6 @@ from core.utils.visualization import draw_detections
 from core.classification.meteor_classifier import (
     extract_trajectory_features,
     classify_trajectory,
-    classify_single_detection,
-    ObjectClass,
 )
 
 logger = get_logger(__name__)
@@ -83,19 +81,15 @@ class MeteorPipeline:
             self._report("Rectifying fisheye", 0.15)
             rectify_fisheye(image_path, image_path)
 
-        # 背景差分
-        if self.background is not None:
-            self._report(f"Removing background (method={self.method})", 0.3)
-            processed = remove_background(
-                image, self.background, method=self.method
-            )
-        else:
-            logger.warning("No background image, using grayscale")
-            processed = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+        # 背景差分（无外部背景时自动用大核模糊估计）
+        self._report(f"Removing background (method={self.method})", 0.3)
+        processed = remove_background(
+            image, self.background, method=self.method
+        )
 
-        # 检测
+        # 检测（在差分图上连通域分析，原图用于亮度验证）
         self._report("Detecting lines", 0.6)
-        detections = self.detector.detect(processed)
+        detections = self.detector.detect(processed, original_image=image)
 
         # 输出
         self._report("Generating output", 0.9)
@@ -133,11 +127,12 @@ class MeteorPipeline:
             logger.warning(f"No images found in {image_dir}")
             return []
 
-        # 中值背景
+        # 中值背景（批量模式下优先用中值背景，比估计背景更准确）
         if build_background and self.background is None and len(images) >= 3:
             self._report("Building median background", 0.05)
             sample = images[:min(10, len(images))]
             self.background = build_median_background([str(p) for p in sample])
+            logger.info("Using median background built from image sequence")
 
         all_results = []
         self.tracker.reset()

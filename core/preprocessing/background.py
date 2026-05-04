@@ -65,6 +65,37 @@ class MOG2BackgroundSubtractor:
         return self._subtractor.getBackgroundImage()
 
 
+def _estimate_background(image: np.ndarray) -> np.ndarray:
+    """用中核高斯模糊估计局部背景.
+
+    核大小的选择原则:
+    - 足够大以平滑掉恒星和流星（它们是小尺度目标）
+    - 但不能太大以至于把大范围的光污染梯度也保留为背景
+    - 经验值: 核大小约等于图像短边的 1/10，范围 [21, 81]
+
+    流星轨迹通常只有 2-5 像素宽，长度几十像素。
+    核大小 21-41 足以模糊掉恒星（点状）同时保留光污染梯度。
+    对于特别亮的流星，即使被部分模糊，差分后仍可保留足够信号。
+
+    Args:
+        image: 输入图像 (BGR 或灰度).
+
+    Returns:
+        估计的背景图像 (灰度).
+    """
+    gray = _to_gray(image)
+    h, w = gray.shape[:2]
+    short = min(h, w)
+    # 核大小 = 短边的 1/10，最小 21，最大 81，奇数
+    kernel_size = int(short / 10)
+    kernel_size = max(kernel_size, 21)
+    kernel_size = min(kernel_size, 81)
+    if kernel_size % 2 == 0:
+        kernel_size += 1
+    logger.info(f"Estimated background kernel size: {kernel_size}x{kernel_size}")
+    return cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
+
+
 def remove_background(
     light_image: np.ndarray,
     background_image: np.ndarray | None = None,
@@ -92,7 +123,7 @@ def remove_background(
         return _remove_mog2(light_roi)
     elif method == "registration":
         if background_image is None:
-            raise ValueError("registration method requires background_image")
+            background_image = _estimate_background(light_roi)
         if coords is not None:
             bg_roi = background_image[y1:y2, x1:x2]
         else:
@@ -100,7 +131,7 @@ def remove_background(
         return _remove_with_registration(light_roi, bg_roi)
     else:
         if background_image is None:
-            raise ValueError("simple method requires background_image")
+            background_image = _estimate_background(light_roi)
         if coords is not None:
             bg_roi = background_image[y1:y2, x1:x2]
         else:
@@ -109,32 +140,42 @@ def remove_background(
 
 
 def _remove_simple(light: np.ndarray, background: np.ndarray) -> np.ndarray:
-    """简单差分."""
-    if light.shape != background.shape:
-        raise ValueError(f"Size mismatch: {light.shape} vs {background.shape}")
+    """简单差分 — 取绝对值，保留亮目标和暗目标."""
     gray = _to_gray(light)
     bg_gray = _to_gray(background)
-    result = cv2.subtract(gray, bg_gray)
+    if gray.shape[:2] != bg_gray.shape[:2]:
+        raise ValueError(f"Size mismatch: {gray.shape} vs {bg_gray.shape}")
+    result = cv2.absdiff(gray, bg_gray)
     return result
 
 
 def _remove_with_registration(
     light: np.ndarray, background: np.ndarray
 ) -> np.ndarray:
-    """图像配准 + 差分."""
-    target_gray = _to_gray(background)
+    """图像配准 + 差分.
+
+    注意：当 background 是由 _estimate_background 生成的大核模糊图像时，
+    配准没有意义（背景和源图像几乎一样），直接走简单差分。
+    """
     source_gray = _to_gray(light)
+    bg_gray = _to_gray(background)
+
+    if source_gray.shape[:2] != bg_gray.shape[:2]:
+        raise ValueError(f"Size mismatch: {source_gray.shape} vs {bg_gray.shape}")
+
+    # 估计背景的情况：直接差分，不做配准
+    diff = cv2.absdiff(source_gray, bg_gray)
+    if diff.mean() < 1.0:
+        return _remove_simple(light, background)
 
     try:
-        registered, _ = aa.register(source_gray, target_gray)
+        registered, _ = aa.register(source_gray, bg_gray)
     except (ValueError, RuntimeError) as e:
         logger.warning(f"Registration failed ({e}), falling back to simple subtraction")
         return _remove_simple(light, background)
 
-    # 确保类型一致
     registered = registered.astype(np.uint8)
-    result = cv2.subtract(source_gray, registered)
-    # 增强对比度
+    result = cv2.absdiff(source_gray, registered)
     result = cv2.normalize(result, None, 0, 255, cv2.NORM_MINMAX)
     return result
 

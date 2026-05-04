@@ -38,13 +38,13 @@ class TestRegistration:
         result = remove_background(fg, bg, method="registration")
         assert result.shape[0] > 0
 
-    def test_requires_background(self):
-        with pytest.raises(ValueError, match="requires background"):
-            remove_background(
-                np.zeros((50, 50, 3), dtype=np.uint8),
-                method="registration",
-                background_image=None,
-            )
+    def test_auto_background_estimation(self):
+        """无外部背景时应自动估计背景，不报错."""
+        fg = np.random.randint(0, 100, (100, 100, 3), dtype=np.uint8)
+        # registration 方法无背景时应自动估计
+        result = remove_background(fg, method="registration", background_image=None)
+        assert result.shape[:2] == (100, 100)
+        assert result.dtype == np.uint8
 
 
 class TestMedianBackground:

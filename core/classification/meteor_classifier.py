@@ -220,35 +220,75 @@ def classify_single_detection(
     brightness: float,
     score: float,
     line_length: float,
+    width: float = 0.0,
+    continuity: float = 0.0,
+    orig_mean: float = 100.0,
+    orig_std: float = 50.0,
 ) -> ClassificationResult:
-    """对单帧检测结果分类（无轨迹信息时）."""
+    """对单帧检测结果分类（无轨迹信息时）.
+
+    使用亮度 + 形状特征区分流星/恒星/噪点:
+    - 流星: 细长亮线，宽度窄，亮度连续，显著高于背景
+    - 恒星边缘: 亮度可能高但不连续，宽度不确定
+    - 噪点: 短、暗、不连续
+    """
     scores = {cls: 0.0 for cls in ObjectClass}
     reasons = {cls: [] for cls in ObjectClass}
 
-    if brightness > 80 and score > 0.5:
-        scores[ObjectClass.METEOR] += 2.0
+    # 亮度相对于背景的显著性
+    bright_sigma = (brightness - orig_mean) / max(orig_std, 1.0)
+
+    # === 流星特征 ===
+    # 显著高于背景的亮度
+    if bright_sigma > 1.0:
+        scores[ObjectClass.METEOR] += 1.5
+        reasons[ObjectClass.METEOR].append(f"亮度显著(bright_sigma={bright_sigma:.1f})")
+
+    # 高亮度 + 高评分
+    if brightness > 60 and score > 0.4:
+        scores[ObjectClass.METEOR] += 1.5
         reasons[ObjectClass.METEOR].append("高亮度+高评分")
 
-    if line_length > 100:
+    # 窄宽度 (流星宽度 2-8 像素)
+    if 0 < width < 10:
         scores[ObjectClass.METEOR] += 1.0
-        scores[ObjectClass.SATELLITE] += 1.0
-        reasons[ObjectClass.METEOR].append("长线段")
-        reasons[ObjectClass.SATELLITE].append("长线段")
+        reasons[ObjectClass.METEOR].append(f"窄宽度({width:.0f}px)")
 
-    if brightness < 30:
+    # 高连续性
+    if continuity > 0.35:
+        scores[ObjectClass.METEOR] += 1.0
+        reasons[ObjectClass.METEOR].append(f"连续(continuity={continuity:.2f})")
+
+    # 长线段
+    if line_length > 80:
+        scores[ObjectClass.METEOR] += 1.0
+        scores[ObjectClass.SATELLITE] += 0.5
+        reasons[ObjectClass.METEOR].append(f"长线段({line_length:.0f}px)")
+
+    # === 噪点特征 ===
+    if bright_sigma < 0.3:
         scores[ObjectClass.NOISE] += 2.0
         reasons[ObjectClass.NOISE].append("低亮度")
 
-    if score < 0.3:
+    if score < 0.2:
         scores[ObjectClass.NOISE] += 1.5
         reasons[ObjectClass.NOISE].append("低评分")
+
+    if line_length < 20:
+        scores[ObjectClass.NOISE] += 1.0
+        reasons[ObjectClass.NOISE].append("极短")
+
+    # === 卫星特征 ===
+    if line_length > 100 and bright_sigma > 0.5:
+        scores[ObjectClass.SATELLITE] += 1.0
+        reasons[ObjectClass.SATELLITE].append("长+稳定亮度")
 
     best_class = max(scores, key=scores.get)
     best_score = scores[best_class]
     total = sum(scores.values())
     confidence = best_score / total if total > 0 else 0.0
 
-    if best_score < 0.5:
+    if best_score < 1.0:
         best_class = ObjectClass.UNKNOWN
         confidence = 0.0
 
