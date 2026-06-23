@@ -18,7 +18,7 @@ def draw_detections(
     show_brightness: bool = True,
     color_by_score: bool = True,
 ) -> np.ndarray:
-    """在图像上绘制检测结果.
+    """在图像上绘制检测结果（旋转矩形框）.
 
     Args:
         image: 原始图像.
@@ -34,7 +34,6 @@ def draw_detections(
 
     for det in detections:
         if color_by_score:
-            # 评分映射到颜色：低分红 → 高分绿
             score = min(det.score, 1.0)
             r = int(255 * (1 - score))
             g = int(255 * score)
@@ -43,12 +42,19 @@ def draw_detections(
         else:
             color = (0, 255, 0)
 
-        # 画线
-        cv2.line(annotated, (det.x1, det.y1), (det.x2, det.y2), color, 2)
-
-        # 画端点
-        cv2.circle(annotated, (det.x1, det.y1), 4, color, -1)
-        cv2.circle(annotated, (det.x2, det.y2), 4, color, -1)
+        # 画旋转矩形框（包围流星的方框）
+        if det.box_points and len(det.box_points) == 4:
+            pts = np.array(det.box_points, dtype=np.int32).reshape((-1, 1, 2))
+            cv2.polylines(annotated, [pts], isClosed=True, color=color, thickness=2)
+            # 在矩形中心画一个小圆点标记
+            cx = int(sum(p[0] for p in det.box_points) / 4)
+            cy = int(sum(p[1] for p in det.box_points) / 4)
+            cv2.circle(annotated, (cx, cy), 3, color, -1)
+        else:
+            # 降级：没有 box_points 时画线段
+            cv2.line(annotated, (det.x1, det.y1), (det.x2, det.y2), color, 2)
+            cv2.circle(annotated, (det.x1, det.y1), 4, color, -1)
+            cv2.circle(annotated, (det.x2, det.y2), 4, color, -1)
 
         # 信息文本
         texts = []

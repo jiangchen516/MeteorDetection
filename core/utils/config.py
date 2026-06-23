@@ -1,5 +1,6 @@
 """配置加载器 — 读取 YAML 配置，支持环境变量覆盖."""
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -35,8 +36,57 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
     # 解析相对路径为绝对路径
     _resolve_paths(config)
 
+    # 环境变量覆盖：METEO__SECTION__KEY=value（支持多级嵌套）
+    _apply_env_overrides(config)
+
     _config = config
     return config
+
+
+def _apply_env_overrides(config: dict) -> None:
+    """用环境变量覆盖配置值.
+
+    格式：METEO__SECTION__KEY=value（SECTION 和 KEY 自动转小写）
+    例如：METEO__REDIS__HOST=redis → config["redis"]["host"] = "redis"
+    """
+    for env_key, env_value in os.environ.items():
+        if not env_key.startswith("METEO__"):
+            continue
+        parts = env_key[len("METEO__"):].lower().split("__")
+        # 只处理已知的顶级 section，避免意外注入
+        if parts[0] not in config or not isinstance(config[parts[0]], dict):
+            continue
+        _set_nested(config, parts, env_value)
+
+
+def _set_nested(config: dict, keys: list[str], value: str) -> None:
+    """在嵌套字典中设置值，自动类型转换."""
+    node = config
+    for key in keys[:-1]:
+        if key not in node or not isinstance(node[key], dict):
+            node[key] = {}
+        node = node[key]
+    # 尝试类型转换
+    node[keys[-1]] = _coerce(value)
+
+
+def _coerce(value: str) -> Any:
+    """将字符串环境变量值转换为合适的类型."""
+    if value.lower() == "true":
+        return True
+    if value.lower() == "false":
+        return False
+    if value.lower() == "null" or value.lower() == "none":
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        pass
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    return value
 
 
 def _resolve_paths(config: dict) -> None:

@@ -29,13 +29,52 @@
     {% endif %}
 </div>
 
-{% if task and task.result_image %}
+<!-- 单张结果图（兼容旧任务） -->
+{% if task and task.result_image and not task.result_images %}
 <div class="card">
     <h2>🖼️ 检测结果图</h2>
     <img src="/api/tasks/{{ task.id }}/image" alt="检测结果标注图"
          style="max-width: 100%; border-radius: 8px; border: 1px solid #2a2a4a;">
 </div>
 {% endif %}
+
+<!-- 批量结果图：缩略图列表 -->
+{% if task and task.result_images %}
+<div class="card">
+    <h2>🖼️ 检测结果图 ({{ task.result_images|length }} 张)</h2>
+    <div id="imageGallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        {% for img_path in task.result_images %}
+        <div class="gallery-item" onclick="openLightbox({{ loop.index0 }})"
+             style="cursor: pointer; border: 2px solid #2a2a4a; border-radius: 8px; overflow: hidden; transition: border-color 0.2s;">
+            <img src="/api/tasks/{{ task.id }}/images/{{ loop.index0 }}"
+                 alt="检测结果 {{ loop.index }}"
+                 loading="lazy"
+                 style="width: 100%; height: 150px; object-fit: cover; display: block;">
+            <div style="padding: 0.5rem; text-align: center; font-size: 0.8rem; color: #888;">
+                {{ img_path.split('/')[-1] if img_path else 'Image ' ~ loop.index }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Lightbox 弹窗 -->
+<div id="lightbox" onclick="closeLightbox()"
+     style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center;
+            flex-direction: column;">
+    <div style="position: absolute; top: 20px; right: 30px; color: #fff; font-size: 2rem; cursor: pointer;"
+         onclick="closeLightbox()">&times;</div>
+    <div style="position: absolute; top: 20px; left: 30px; color: #aaa; font-size: 0.9rem;" id="lightboxInfo"></div>
+    <img id="lightboxImg" src="" alt="大图"
+         style="max-width: 90vw; max-height: 85vh; object-fit: contain; border-radius: 4px;"
+         onclick="event.stopPropagation()">
+    <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+        <button class="btn btn-primary" onclick="event.stopPropagation(); navigateLightbox(-1)">◀ 上一张</button>
+        <button class="btn btn-primary" onclick="event.stopPropagation(); navigateLightbox(1)">下一张 ▶</button>
+    </div>
+</div>
 
 {% if detections %}
 <div class="card">
@@ -80,11 +119,56 @@
 {% endif %}
 
 <script>
-// 运行中任务自动刷新日志
+let currentImageIndex = 0;
+let totalImages = {{ task.result_images|length if task and task.result_images else 0 }};
+const taskId = "{{ task.id }}";
+
+function openLightbox(index) {
+    currentImageIndex = index;
+    updateLightbox();
+    document.getElementById('lightbox').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function navigateLightbox(dir) {
+    currentImageIndex += dir;
+    if (currentImageIndex < 0) currentImageIndex = totalImages - 1;
+    if (currentImageIndex >= totalImages) currentImageIndex = 0;
+    updateLightbox();
+}
+
+function updateLightbox() {
+    const img = document.getElementById('lightboxImg');
+    img.src = `/api/tasks/${taskId}/images/${currentImageIndex}`;
+    document.getElementById('lightboxInfo').textContent = `${currentImageIndex + 1} / ${totalImages}`;
+}
+
+// 键盘导航
+document.addEventListener('keydown', (e) => {
+    const lb = document.getElementById('lightbox');
+    if (lb.style.display === 'flex') {
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') navigateLightbox(-1);
+        if (e.key === 'ArrowRight') navigateLightbox(1);
+    }
+});
+
+// 运行中任务自动刷新
 {% if task and task.status == 'RUNNING' %}
 setInterval(() => {
     window.location.reload();
 }, 5000);
 {% endif %}
 </script>
+
+<style>
+.gallery-item:hover {
+    border-color: #6080ff !important;
+}
+</style>
 {% endblock %}

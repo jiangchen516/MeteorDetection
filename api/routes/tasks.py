@@ -1,5 +1,8 @@
 """任务 API 路由."""
 
+import json
+from pathlib import Path
+
 from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
@@ -78,6 +81,7 @@ async def get_task_detail(task_id: str):
         created_at=task_resp.created_at,
         updated_at=task_resp.updated_at,
         params=task_resp.params,
+        result_images=task_resp.result_images,
         results=[
             DetectionResult(
                 x1=d["x1"], y1=d["y1"], x2=d["x2"], y2=d["y2"],
@@ -115,6 +119,45 @@ async def cancel_task(task_id: str):
     from api.models.database import upsert_task
     upsert_task(task_id=task_id, status="CANCELLED", message="Cancelled by user")
     return {"status": "cancelled"}
+
+
+@router.get("/{task_id}/images")
+async def get_task_images(task_id: str):
+    """获取批量任务的所有标注图路径."""
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    raw = task.get("result_images", "[]")
+    if isinstance(raw, str):
+        try:
+            images = json.loads(raw)
+        except json.JSONDecodeError:
+            images = []
+    else:
+        images = raw or []
+    return {"images": images, "count": len(images)}
+
+
+@router.get("/{task_id}/images/{index}")
+async def get_task_image_by_index(task_id: str, index: int):
+    """获取批量任务中指定索引的标注图."""
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    raw = task.get("result_images", "[]")
+    if isinstance(raw, str):
+        try:
+            images = json.loads(raw)
+        except json.JSONDecodeError:
+            images = []
+    else:
+        images = raw or []
+    if index < 0 or index >= len(images):
+        raise HTTPException(404, f"Image index {index} out of range (0-{len(images)-1})")
+    image_path = Path(images[index])
+    if not image_path.exists():
+        raise HTTPException(404, "Image file not found")
+    return FileResponse(str(image_path), media_type="image/jpeg")
 
 
 @router.get("/search/detections")
@@ -170,6 +213,15 @@ async def start_realtime_api(
 def _task_to_response(task: dict | None) -> TaskResponse:
     if not task:
         return TaskResponse(id="", task_type="batch")
+    # 解析 result_images JSON
+    raw = task.get("result_images", "[]")
+    if isinstance(raw, str):
+        try:
+            images = json.loads(raw)
+        except json.JSONDecodeError:
+            images = []
+    else:
+        images = raw or []
     return TaskResponse(
         id=task["id"],
         task_type=task.get("task_type", "batch"),
@@ -178,4 +230,5 @@ def _task_to_response(task: dict | None) -> TaskResponse:
         message=task.get("message", ""),
         result_count=task.get("result_count", 0),
         result_image=task.get("result_image", ""),
+        result_images=images,
     )

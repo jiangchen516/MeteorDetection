@@ -1,5 +1,6 @@
 """SQLite 数据库连接."""
 
+import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -37,6 +38,7 @@ def init_db() -> None:
             message TEXT DEFAULT '',
             result_count INTEGER DEFAULT 0,
             result_image TEXT DEFAULT '',
+            result_images TEXT DEFAULT '[]',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             params TEXT DEFAULT '{}'
@@ -76,6 +78,12 @@ def init_db() -> None:
             FOREIGN KEY (task_id) REFERENCES tasks(id)
         );
 
+        -- Migration: add result_images column if not exists
+        try:
+            conn.execute("ALTER TABLE tasks ADD COLUMN result_images TEXT DEFAULT '[]'")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
         CREATE INDEX IF NOT EXISTS idx_detections_task_id ON detections(task_id);
         CREATE INDEX IF NOT EXISTS idx_task_logs_task_id ON task_logs(task_id);
         CREATE INDEX IF NOT EXISTS idx_classifications_task_id ON classifications(task_id);
@@ -87,30 +95,44 @@ def init_db() -> None:
 
 def upsert_task(
     task_id: str,
-    task_type: str,
+    task_type: str | None = None,
     status: str = "PENDING",
     progress: float = 0.0,
     message: str = "",
     result_count: int = 0,
     params: str = "{}",
     result_image: str = "",
+    result_images: list[str] | None = None,
 ) -> None:
     now = datetime.utcnow().isoformat()
     conn = get_connection()
-    conn.execute(
-        """
-        INSERT INTO tasks (id, task_type, status, progress, message, result_count, result_image, params, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-            status=excluded.status,
-            progress=excluded.progress,
-            message=excluded.message,
-            result_count=excluded.result_count,
-            result_image=excluded.result_image,
-            updated_at=excluded.updated_at
-        """,
-        (task_id, task_type, status, progress, message, result_count, result_image, params, now, now),
-    )
+    result_images_json = json.dumps(result_images) if result_images is not None else None
+
+    # 先尝试 INSERT
+    try:
+        conn.execute(
+            """
+            INSERT INTO tasks (id, task_type, status, progress, message, result_count, result_image, result_images, params, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (task_id, task_type or "batch", status, progress, message, result_count, result_image, result_images_json or "[]", params, now, now),
+        )
+    except sqlite3.IntegrityError:
+        # UPDATE：只更新传入的字段
+        sets = ["status=?", "progress=?", "message=?", "result_count=?", "updated_at=?"]
+        vals: list = [status, progress, message, result_count, now]
+        if task_type is not None:
+            sets.append("task_type=?")
+            vals.append(task_type)
+        if result_image:
+            sets.append("result_image=?")
+            vals.append(result_image)
+        if result_images_json is not None:
+            sets.append("result_images=?")
+            vals.append(result_images_json)
+        vals.append(task_id)
+        conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id=?", vals)
+
     conn.commit()
     conn.close()
 

@@ -43,6 +43,9 @@ class DetectionResult:
     merged_count: int = 1
     width: float = 0.0
     continuity: float = 0.0
+    # 旋转矩形四个角点 (cv2.minAreaRect 的 boxPoints)，用于画方框
+    # 每个点是 (x, y) 元组，共4个点
+    box_points: list[tuple[int, int]] = field(default_factory=list)
 
 
 @dataclass
@@ -147,10 +150,17 @@ class LineDetector:
             if length < self.min_line_length or width > 20:
                 continue
 
-            dx = (length / 2) * np.cos(np.radians(angle))
-            dy = (length / 2) * np.sin(np.radians(angle))
-            x1, y1 = int(cx - dx), int(cy - dy)
-            x2, y2 = int(cx + dx), int(cy + dy)
+            # 获取旋转矩形四个角点用于画方框
+            box = cv2.boxPoints(rect)  # 4x2 float32
+            box_pts = [(int(p[0]), int(p[1])) for p in box]
+
+            # minAreaRect 的 angle 是短边与水平轴夹角，长边角度需要 +90
+            # 用 atan2 从 boxPoints 直接计算长边方向更可靠
+            # box_pts[0] 到 box_pts[1] 是短边，box_pts[1] 到 box_pts[2] 是长边
+            dx_long = box_pts[2][0] - box_pts[1][0]
+            dy_long = box_pts[2][1] - box_pts[1][1]
+            x1, y1 = int(cx - dx_long / 2), int(cy - dy_long / 2)
+            x2, y2 = int(cx + dx_long / 2), int(cy + dy_long / 2)
 
             # 亮度（从原图或差分图）
             if original_image is not None:
@@ -166,6 +176,7 @@ class LineDetector:
                 confidence=min(aspect / 10.0, 1.0),
                 width=width,
                 continuity=area / max(w * h, 1),
+                box_points=box_pts,
             ))
 
         logger.info(f"Detected {len(candidates)} candidate meteor lines")

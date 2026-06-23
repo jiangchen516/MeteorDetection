@@ -106,9 +106,15 @@ def process_batch(self, image_dir: str, background_path: str | None = None,
         for r in results:
             _add_detection(task_id, r)
 
+        # 收集所有标注图路径
+        from pathlib import Path
+        result_images = sorted(Path(output_dir).glob("*_detected.jpg"))
+        result_images_str = [str(p) for p in result_images]
+
         _update_task(task_id=task_id, status="SUCCESS", progress=1.0,
                      message=f"Done: {len(results)} detections",
-                     result_count=len(results))
+                     result_count=len(results),
+                     result_images=result_images_str)
 
         return {"detections": len(results), "output_dir": output_dir}
 

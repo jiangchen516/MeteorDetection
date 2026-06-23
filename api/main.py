@@ -1,5 +1,7 @@
 """FastAPI 应用入口."""
 
+import json
+
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -43,6 +45,16 @@ async def dashboard(request: Request):
 async def task_detail(request: Request, task_id: str):
     from api.models.database import get_task, get_detections, get_logs
     task = get_task(task_id)
+    if task:
+        # 解析 result_images JSON 字符串
+        raw = task.get("result_images", "[]")
+        if isinstance(raw, str):
+            try:
+                task["result_images"] = json.loads(raw)
+            except json.JSONDecodeError:
+                task["result_images"] = []
+        elif not raw:
+            task["result_images"] = []
     detections = get_detections(task_id)
     logs = get_logs(task_id)
     return templates.TemplateResponse(

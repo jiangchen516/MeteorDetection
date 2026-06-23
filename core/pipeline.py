@@ -61,8 +61,32 @@ class MeteorPipeline:
         if self.progress_cb:
             self.progress_cb(message, fraction)
 
-    def run_single(self, image_path: str | Path, output_dir: str | Path) -> list[dict]:
+    def _check_uniform_size(self, image_paths: list[Path]) -> bool:
+        """检查所有图片尺寸是否一致."""
+        if len(image_paths) < 2:
+            return True
+        first = cv2.imread(str(image_paths[0]))
+        if first is None:
+            return False
+        h, w = first.shape[:2]
+        for p in image_paths[1:]:
+            img = cv2.imread(str(p))
+            if img is None:
+                continue
+            if img.shape[0] != h or img.shape[1] != w:
+                logger.info(f"Size mismatch in batch: {w}x{h} vs {img.shape[1]}x{img.shape[0]}, using per-image background")
+                return False
+        return True
+
+    def run_single(self, image_path: str | Path, output_dir: str | Path,
+                   force_background: str | None = None) -> list[dict]:
         """处理单张图像.
+
+        Args:
+            image_path: 图片路径.
+            output_dir: 输出目录.
+            force_background: 强制背景模式，"estimate" 表示每张图用大核模糊估计背景，
+                             None 则按正常逻辑（用中值背景或外部背景）.
 
         Returns:
             检测结果列表.
@@ -81,11 +105,16 @@ class MeteorPipeline:
             self._report("Rectifying fisheye", 0.15)
             rectify_fisheye(image_path, image_path)
 
-        # 背景差分（无外部背景时自动用大核模糊估计）
-        self._report(f"Removing background (method={self.method})", 0.3)
-        processed = remove_background(
-            image, self.background, method=self.method
-        )
+        # 背景差分
+        if force_background == "estimate":
+            # 每张图用自己的估计背景（大核高斯模糊），不用中值背景
+            self._report("Removing background (per-image estimation)", 0.3)
+            processed = remove_background(image, background_image=None, method="registration")
+        else:
+            self._report(f"Removing background (method={self.method})", 0.3)
+            processed = remove_background(
+                image, self.background, method=self.method
+            )
 
         # 检测（在差分图上连通域分析，原图用于亮度验证）
         self._report("Detecting lines", 0.6)
@@ -127,12 +156,20 @@ class MeteorPipeline:
             logger.warning(f"No images found in {image_dir}")
             return []
 
-        # 中值背景（批量模式下优先用中值背景，比估计背景更准确）
-        if build_background and self.background is None and len(images) >= 3:
+        # 检查所有图片尺寸是否一致，决定是否能用统一中值背景
+        use_median_bg = (
+            build_background
+            and self.background is None
+            and len(images) >= 3
+            and self._check_uniform_size(images)
+        )
+
+        if use_median_bg:
             self._report("Building median background", 0.05)
-            sample = images[:min(10, len(images))]
-            self.background = build_median_background([str(p) for p in sample])
+            self.background = build_median_background([str(p) for p in images])
             logger.info("Using median background built from image sequence")
+        elif build_background and self.background is None and len(images) >= 3:
+            logger.info("Images have different sizes, using per-image background estimation")
 
         all_results = []
         self.tracker.reset()
@@ -140,7 +177,11 @@ class MeteorPipeline:
         for i, img_path in enumerate(images):
             fraction = 0.1 + 0.8 * (i / len(images))
             self._report(f"Processing {img_path.name} ({i+1}/{len(images)})", fraction)
-            results = self.run_single(img_path, output_dir / img_path.stem)
+            # 尺寸不一致时，每张图用自己的估计背景（不用中值背景）
+            results = self.run_single(
+                img_path, output_dir / img_path.stem,
+                force_background=None if use_median_bg else "estimate",
+            )
             for r in results:
                 r["image"] = str(img_path)
             all_results.extend(results)

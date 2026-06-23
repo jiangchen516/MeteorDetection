@@ -34,6 +34,13 @@ def build_median_background(image_paths: list[str | np.ndarray]) -> np.ndarray:
         raise ValueError("No valid images for median background")
 
     logger.info(f"Building median background from {len(frames)} images")
+    # 检查所有帧尺寸一致
+    shapes = {f.shape for f in frames}
+    if len(shapes) > 1:
+        raise ValueError(
+            f"Cannot build median background: images have different sizes {shapes}. "
+            "Use per-image background estimation instead."
+        )
     stack = np.stack(frames, axis=0)
     median = np.median(stack, axis=0).astype(np.uint8)
     return median
