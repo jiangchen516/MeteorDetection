@@ -121,6 +121,62 @@ async def cancel_task(task_id: str):
     return {"status": "cancelled"}
 
 
+@router.post("/{task_id}/retry")
+async def retry_task(task_id: str):
+    """重试失败的任务."""
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+    if task.get("status") != "FAILED":
+        raise HTTPException(400, "Only failed tasks can be retried")
+
+    # 重新提交任务
+    task_type = task.get("task_type", "batch")
+    params_str = task.get("params", "{}")
+    try:
+        params = json.loads(params_str)
+    except json.JSONDecodeError:
+        params = {}
+
+    if task_type == "single":
+        image_path = params.get("image_path")
+        if not image_path:
+            raise HTTPException(400, "Cannot retry: image_path not found in params")
+        process_single.apply_async(
+            args=[image_path],
+            kwargs={"background_path": params.get("background_path")},
+            task_id=task_id,
+        )
+    elif task_type == "batch":
+        image_dir = params.get("image_dir")
+        if not image_dir:
+            raise HTTPException(400, "Cannot retry: image_dir not found in params")
+        process_batch.apply_async(
+            args=[image_dir],
+            kwargs={"background_path": params.get("background_path")},
+            task_id=task_id,
+        )
+    else:
+        raise HTTPException(400, f"Unknown task type: {task_type}")
+
+    upsert_task(task_id=task_id, status="PENDING", message="Retrying...", progress=0.0)
+    return {"status": "retry", "task_id": task_id}
+
+
+@router.delete("/{task_id}")
+async def delete_task(task_id: str):
+    """删除任务."""
+    from api.models.database import get_connection
+    conn = get_connection()
+    conn.execute("DELETE FROM detections WHERE task_id = ?", (task_id,))
+    conn.execute("DELETE FROM task_logs WHERE task_id = ?", (task_id,))
+    conn.execute("DELETE FROM classifications WHERE task_id = ?", (task_id,))
+    conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "deleted", "task_id": task_id}
+
+
 @router.get("/{task_id}/images")
 async def get_task_images(task_id: str):
     """获取批量任务的所有标注图路径."""

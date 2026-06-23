@@ -31,10 +31,15 @@
                 <td>{{ task.message or '-' }}</td>
                 <td>{{ task.result_count or 0 }}</td>
                 <td>{{ task.created_at or '-' }}</td>
-                <td>
+                <td style="white-space: nowrap;">
                     {% if task.status == 'RUNNING' %}
                     <button class="btn btn-danger" hx-post="/api/tasks/{{ task.id }}/cancel" hx-swap="none">取消</button>
+                    {% elif task.status == 'FAILED' %}
+                    <button class="btn btn-primary" hx-post="/api/tasks/{{ task.id }}/retry" hx-swap="none">重试</button>
+                    {% elif task.status == 'SUCCESS' %}
+                    <a href="/tasks/{{ task.id }}" class="btn btn-primary">查看</a>
                     {% endif %}
+                    <button class="btn btn-danger" hx-delete="/api/tasks/{{ task.id }}" hx-confirm="确定删除此任务？" hx-swap="none" style="margin-left:0.25rem;">删除</button>
                 </td>
             </tr>
             {% endfor %}
