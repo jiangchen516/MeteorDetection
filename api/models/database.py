@@ -26,6 +26,13 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """执行数据库迁移."""
+    columns = [row[1] for row in conn.execute("PRAGMA table_info(tasks)").fetchall()]
+    if "result_images" not in columns:
+        conn.execute("ALTER TABLE tasks ADD COLUMN result_images TEXT DEFAULT '[]'")
+
+
 def init_db() -> None:
     """初始化数据库表."""
     conn = get_connection()
@@ -78,17 +85,13 @@ def init_db() -> None:
             FOREIGN KEY (task_id) REFERENCES tasks(id)
         );
 
-        -- Migration: add result_images column if not exists
-        try:
-            conn.execute("ALTER TABLE tasks ADD COLUMN result_images TEXT DEFAULT '[]'")
-        except sqlite3.OperationalError:
-            pass  # column already exists
-
         CREATE INDEX IF NOT EXISTS idx_detections_task_id ON detections(task_id);
         CREATE INDEX IF NOT EXISTS idx_task_logs_task_id ON task_logs(task_id);
         CREATE INDEX IF NOT EXISTS idx_classifications_task_id ON classifications(task_id);
         CREATE INDEX IF NOT EXISTS idx_classifications_class ON classifications(object_class);
     """)
+    conn.commit()
+    _migrate(conn)
     conn.commit()
     conn.close()
 

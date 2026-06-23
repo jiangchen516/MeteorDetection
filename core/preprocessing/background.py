@@ -73,16 +73,16 @@ class MOG2BackgroundSubtractor:
 
 
 def _estimate_background(image: np.ndarray) -> np.ndarray:
-    """用中核高斯模糊估计局部背景.
+    """用形态学开运算估计局部背景.
 
-    核大小的选择原则:
-    - 足够大以平滑掉恒星和流星（它们是小尺度目标）
-    - 但不能太大以至于把大范围的光污染梯度也保留为背景
-    - 经验值: 核大小约等于图像短边的 1/10，范围 [21, 81]
+    形态学开运算（先腐蚀后膨胀）能平滑背景同时保留细长目标:
+    - 腐蚀步骤: 去除亮点（恒星、流星），保留暗背景
+    - 膨胀步骤: 恢复背景区域，填补被腐蚀的暗洞
+    - 结果: 背景被平滑，但细长目标（流星）被保留在前景
 
-    流星轨迹通常只有 2-5 像素宽，长度几十像素。
-    核大小 21-41 足以模糊掉恒星（点状）同时保留光污染梯度。
-    对于特别亮的流星，即使被部分模糊，差分后仍可保留足够信号。
+    核大小选择:
+    - 核应大于恒星直径（通常 3-5 像素）但小于流星长度
+    - 推荐: 短边的 1/15 ~ 1/8，范围 [21, 61]
 
     Args:
         image: 输入图像 (BGR 或灰度).
@@ -93,14 +93,18 @@ def _estimate_background(image: np.ndarray) -> np.ndarray:
     gray = _to_gray(image)
     h, w = gray.shape[:2]
     short = min(h, w)
-    # 核大小 = 短边的 1/10，最小 21，最大 81，奇数
-    kernel_size = int(short / 10)
+    # 核大小 = 短边的 1/12，最小 21，最大 61，奇数
+    kernel_size = int(short / 12)
     kernel_size = max(kernel_size, 21)
-    kernel_size = min(kernel_size, 81)
+    kernel_size = min(kernel_size, 61)
     if kernel_size % 2 == 0:
         kernel_size += 1
-    logger.info(f"Estimated background kernel size: {kernel_size}x{kernel_size}")
-    return cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
+    logger.info(f"Estimated background kernel size: {kernel_size}x{kernel_size} (morphological)")
+
+    # 形态学开运算估计背景
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+    background = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel)
+    return background
 
 
 def remove_background(

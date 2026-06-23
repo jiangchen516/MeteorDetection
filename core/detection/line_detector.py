@@ -64,9 +64,12 @@ class LineDetector:
     merge_lines: bool = True
     _config_loaded: bool = field(default=False, repr=False)
 
-    adaptive_block_size: int = 31    # 自适应阈值块大小
-    adaptive_c: float = -5.0         # 自适应阈值偏移
+    adaptive_block_size: int = 21    # 自适应阈值块大小（更小更灵敏）
+    adaptive_c: float = -2.0         # 自适应阈值偏移
+    min_line_length: int = 15        # 最小线长（检测更短的流星）
     morph_kernel_size: int = 3       # 形态学核大小
+    use_fixed_threshold: bool = False  # 使用自适应阈值
+    fixed_threshold: int = 15         # 固定阈值（0-255），更低更灵敏
 
     def __post_init__(self) -> None:
         if not self._config_loaded:
@@ -90,26 +93,30 @@ class LineDetector:
         """检测图像中的流星候选.
 
         Args:
-            image: 差分图（用于连通域分析）.
+            image: 输入图（差分图或原图）.
             original_image: 原图（用于亮度验证，可选）.
 
         Returns:
             候选流星检测结果列表.
         """
         gray = _to_gray(image)
+        h, w = gray.shape[:2]
 
-        # 自适应阈值分割
-        blur = cv2.GaussianBlur(gray, (7, 7), 0)
-        binary = cv2.adaptiveThreshold(
-            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY, self.adaptive_block_size, self.adaptive_c,
-        )
+        # 阈值分割 — 直接在原图上检测明亮的细长区域
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        if self.use_fixed_threshold:
+            _, binary = cv2.threshold(blur, self.fixed_threshold, 255, cv2.THRESH_BINARY)
+        else:
+            binary = cv2.adaptiveThreshold(
+                blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY, self.adaptive_block_size, self.adaptive_c,
+            )
 
         # 形态学开运算去噪
-        kernel = cv2.getStructuringElement(
+        open_kernel = cv2.getStructuringElement(
             cv2.MORPH_ELLIPSE, (self.morph_kernel_size, self.morph_kernel_size)
         )
-        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, open_kernel)
 
         # 连通域分析
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
@@ -122,16 +129,16 @@ class LineDetector:
             area = stats[i, cv2.CC_STAT_AREA]
             x = stats[i, cv2.CC_STAT_LEFT]
             y = stats[i, cv2.CC_STAT_TOP]
-            w = stats[i, cv2.CC_STAT_WIDTH]
-            h = stats[i, cv2.CC_STAT_HEIGHT]
+            bw = stats[i, cv2.CC_STAT_WIDTH]
+            bh = stats[i, cv2.CC_STAT_HEIGHT]
 
-            # 面积过滤
-            if area < 10:
+            # 面积过滤（太小是噪点）
+            if area < 5:
                 continue
 
-            # 长宽比过滤（流星是拉长的）
-            aspect = max(w, h) / max(min(w, h), 1)
-            if aspect < 3.0:
+            # 长宽比过滤（流星是拉长的，但断裂的流星可能长宽比低）
+            aspect = max(bw, bh) / max(min(bw, bh), 1)
+            if aspect < 2.0:
                 continue
 
             # 最小外接旋转矩形
@@ -154,9 +161,7 @@ class LineDetector:
             box = cv2.boxPoints(rect)  # 4x2 float32
             box_pts = [(int(p[0]), int(p[1])) for p in box]
 
-            # minAreaRect 的 angle 是短边与水平轴夹角，长边角度需要 +90
-            # 用 atan2 从 boxPoints 直接计算长边方向更可靠
-            # box_pts[0] 到 box_pts[1] 是短边，box_pts[1] 到 box_pts[2] 是长边
+            # 用 atan2 从 boxPoints 直接计算长边方向
             dx_long = box_pts[2][0] - box_pts[1][0]
             dy_long = box_pts[2][1] - box_pts[1][1]
             x1, y1 = int(cx - dx_long / 2), int(cy - dy_long / 2)
@@ -169,13 +174,18 @@ class LineDetector:
                 orig_gray = gray
             mean_bright = float(orig_gray[component_mask > 0].mean()) if area > 0 else 0
 
+            # 边缘过滤：排除靠近图像边缘的检测
+            dist_to_edge = min(x1, y1, w - x2, h - y2)
+            if dist_to_edge < 5:
+                continue
+
             candidates.append(DetectionResult(
                 x1=x1, y1=y1, x2=x2, y2=y2,
                 brightness=mean_bright,
                 score=min(length / 100.0, 1.0),
                 confidence=min(aspect / 10.0, 1.0),
                 width=width,
-                continuity=area / max(w * h, 1),
+                continuity=area / max(bw * bh, 1),
                 box_points=box_pts,
             ))
 

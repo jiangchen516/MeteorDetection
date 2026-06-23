@@ -27,20 +27,20 @@ hough_line:
 
 # 流星检测参数
 meteor_detection:
-  min_line_length: 20
+  min_line_length: 15
   max_line_gap: 10
-  min_brightness: 100
-  min_aspect_ratio: 10
+  min_brightness: 60
+  min_aspect_ratio: 5
   # 评分阈值（0-1），综合评分超过此值才认为是候选流星
-  score_threshold: 0.35
+  score_threshold: 0.2
   # 各评分项权重
   score_weights:
     length: 0.3
     brightness: 0.4
     aspect_ratio: 0.3
   # Stage 1 连通域筛选参数
-  min_component_area: 8        # 最小连通域面积（像素），过滤噪点
-  min_component_aspect: 2.5    # 最小长宽比，过滤点状恒星
+  min_component_area: 5        # 最小连通域面积（像素），过滤噪点
+  min_component_aspect: 2.0    # 最小长宽比，过滤点状恒星
   min_fill_ratio: 0.03         # 最小填充率，流星在差分图上填充率可以很低
 
 # 轨迹跟踪参数

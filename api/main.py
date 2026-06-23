@@ -48,15 +48,17 @@ async def task_detail(request: Request, task_id: str):
     if task:
         # 解析 result_images JSON 字符串
         raw = task.get("result_images", "[]")
-        if isinstance(raw, str):
+        if isinstance(raw, str) and raw.strip():
             try:
                 task["result_images"] = json.loads(raw)
             except json.JSONDecodeError:
                 task["result_images"] = []
-        elif not raw:
+        else:
             task["result_images"] = []
-    detections = get_detections(task_id)
-    logs = get_logs(task_id)
+    else:
+        task = None
+    detections = get_detections(task_id) if task else []
+    logs = get_logs(task_id) if task else []
     return templates.TemplateResponse(
         request, "task_detail.html",
         {"task": task, "detections": detections, "logs": logs},

@@ -105,20 +105,9 @@ class MeteorPipeline:
             self._report("Rectifying fisheye", 0.15)
             rectify_fisheye(image_path, image_path)
 
-        # 背景差分
-        if force_background == "estimate":
-            # 每张图用自己的估计背景（大核高斯模糊），不用中值背景
-            self._report("Removing background (per-image estimation)", 0.3)
-            processed = remove_background(image, background_image=None, method="registration")
-        else:
-            self._report(f"Removing background (method={self.method})", 0.3)
-            processed = remove_background(
-                image, self.background, method=self.method
-            )
-
-        # 检测（在差分图上连通域分析，原图用于亮度验证）
+        # 检测（直接在原图上连通域分析，不依赖背景差分）
         self._report("Detecting lines", 0.6)
-        detections = self.detector.detect(processed, original_image=image)
+        detections = self.detector.detect(image)
 
         # 输出
         self._report("Generating output", 0.9)
