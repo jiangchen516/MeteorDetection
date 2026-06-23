@@ -5,6 +5,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# macOS
+.DS_Store
+
 # Data
 outputs/
 data/
