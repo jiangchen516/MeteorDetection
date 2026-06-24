@@ -133,6 +133,9 @@ def upsert_task(
         if result_images_json is not None:
             sets.append("result_images=?")
             vals.append(result_images_json)
+        if params != "{}":
+            sets.append("params=?")
+            vals.append(params)
         vals.append(task_id)
         conn.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id=?", vals)
 
