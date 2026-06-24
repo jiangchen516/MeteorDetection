@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}参数调整 — 流星探测{% endblock %}
+{% block content %}
+<div class="grid-2" style="gap: 1.5rem;">
+    <!-- 左侧：参数控制面板 -->
+    <div class="card">
+        <h2>⚙️ 检测参数</h2>
+        <div style="margin-top: 1rem;">
+            <div class="param-group">
+                <label>自适应阈值块大小: <span id="val-block_size">21</span></label>
+                <input type="range" id="param-block_size" min="11" max="71" step="2" value="21"
+                       oninput="document.getElementById('val-block_size').textContent=this.value">
+                <small>越小越灵敏，推荐 11-31</small>
+            </div>
+
+            <div class="param-group">
+                <label>自适应阈值偏移: <span id="val-c">-2</span></label>
+                <input type="range" id="param-c" min="-10" max="0" step="1" value="-2"
+                       oninput="document.getElementById('val-c').textContent=this.value">
+                <small>负值越小越灵敏，推荐 -5 ~ -1</small>
+            </div>
+
+            <div class="param-group">
+                <label>最小线长: <span id="val-min_line_length">15</span></label>
+                <input type="range" id="param-min_line_length" min="5" max="50" step="1" value="15"
+                       oninput="document.getElementById('val-min_line_length').textContent=this.value">
+                <small>检测更短的流星，推荐 10-30</small>
+            </div>
+
+            <div class="param-group">
+                <label>最小面积: <span id="val-min_area">5</span></label>
+                <input type="range" id="param-min_area" min="1" max="30" step="1" value="5"
+                       oninput="document.getElementById('val-min_area').textContent=this.value">
+                <small>过滤噪点，推荐 3-10</small>
+            </div>
+
+            <div class="param-group">
+                <label>最小长宽比: <span id="val-min_aspect">2.0</span></label>
+                <input type="range" id="param-min_aspect" min="1.0" max="5.0" step="0.5" value="2.0"
+                       oninput="document.getElementById('val-min_aspect').textContent=this.value">
+                <small>过滤点状噪点，推荐 1.5-3.0</small>
+            </div>
+
+            <div class="param-group">
+                <label>高斯模糊核: <span id="val-blur">5</span></label>
+                <input type="range" id="param-blur" min="3" max="11" step="2" value="5"
+                       oninput="document.getElementById('val-blur').textContent=this.value">
+                <small>降噪，推荐 3-7</small>
+            </div>
+
+            <div class="param-group">
+                <label>形态学核: <span id="val-morph">3</span></label>
+                <input type="range" id="param-morph" min="1" max="7" step="2" value="3"
+                       oninput="document.getElementById('val-morph').textContent=this.value">
+                <small>去噪，推荐 1-5</small>
+            </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+            <button class="btn btn-primary" onclick="runDetection()" style="width:100%;">🔍 开始检测</button>
+        </div>
+
+        <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary" onclick="resetParams()" style="flex:1;">重置</button>
+            <button class="btn btn-secondary" onclick="loadPreset('default')" style="flex:1;">默认</button>
+            <button class="btn btn-secondary" onclick="loadPreset('sensitive')" style="flex:1;">高灵敏</button>
+        </div>
+    </div>
+
+    <!-- 右侧：图片和结果 -->
+    <div>
+        <div class="card">
+            <h2>📷 选择图片</h2>
+            <div style="margin-top: 1rem;">
+                <select id="imageSelect" onchange="loadImagePreview()" style="width:100%; padding:0.5rem; background:#1a1a3a; border:1px solid #2a2a4a; border-radius:6px; color:#e0e0e0;">
+                    <option value="">-- 选择图片 --</option>
+                </select>
+                <div style="margin-top:0.5rem; font-size:0.85rem; color:#888;">
+                    或上传新图片：
+                    <input type="file" id="imageUpload" accept="image/*" onchange="uploadImage()" style="margin-top:0.25rem;">
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:1rem;">
+            <h2>🖼️ 检测结果 <span id="resultCount" style="font-size:0.9rem; color:#888;"></span></h2>
+            <div id="resultArea" style="margin-top:1rem; text-align:center;">
+                <p style="color:#666;">选择图片后点击"开始检测"</p>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:1rem;">
+            <h2>📊 检测统计</h2>
+            <div id="statsArea" style="margin-top:0.5rem; font-size:0.9rem; color:#aaa;">
+                <p>等待检测...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 加载图片列表
+fetch('/api/images/')
+    .then(r => r.json())
+    .then(data => {
+        const select = document.getElementById('imageSelect');
+        data.images.forEach(img => {
+            const opt = document.createElement('option');
+            opt.value = img.path;
+            opt.textContent = img.name;
+            select.appendChild(opt);
+        });
+    });
+
+function loadImagePreview() {
+    const path = document.getElementById('imageSelect').value;
+    if (!path) return;
+    const area = document.getElementById('resultArea');
+    area.innerHTML = `<img src="/${path}" style="max-width:100%; border-radius:6px;" alt="预览">`;
+}
+
+function uploadImage() {
+    const file = document.getElementById('imageUpload').files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch('/api/upload/', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            const select = document.getElementById('imageSelect');
+            const opt = document.createElement('option');
+            opt.value = data.path;
+            opt.textContent = data.filename;
+            select.appendChild(opt);
+            select.value = data.path;
+            loadImagePreview();
+        })
+        .catch(err => alert('上传失败: ' + err));
+}
+
+function getParams() {
+    return {
+        block_size: parseInt(document.getElementById('param-block_size').value),
+        c: parseInt(document.getElementById('param-c').value),
+        min_line_length: parseInt(document.getElementById('param-min_line_length').value),
+        min_area: parseInt(document.getElementById('param-min_area').value),
+        min_aspect: parseFloat(document.getElementById('param-min_aspect').value),
+        blur: parseInt(document.getElementById('param-blur').value),
+        morph: parseInt(document.getElementById('param-morph').value),
+    };
+}
+
+function runDetection() {
+    const path = document.getElementById('imageSelect').value;
+    if (!path) { alert('请先选择图片'); return; }
+
+    const params = getParams();
+    const area = document.getElementById('resultArea');
+    area.innerHTML = '<p style="color:#888;">检测中...</p>';
+
+    fetch('/api/detect/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({image_path: path, params: params})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            area.innerHTML = `<p style="color:#ff6b66;">❌ ${data.error}</p>`;
+            return;
+        }
+        // 显示结果图
+        if (data.result_image) {
+            area.innerHTML = `<img src="/${data.result_image}" style="max-width:100%; border-radius:6px;" alt="检测结果">`;
+        }
+        document.getElementById('resultCount').textContent = `(${data.detections} 个检测)`;
+
+        // 显示统计
+        const stats = document.getElementById('statsArea');
+        stats.innerHTML = `
+            <p>检测数: <strong>${data.detections}</strong></p>
+            <p>耗时: <strong>${data.time.toFixed(2)}s</strong></p>
+            <p>参数: block_size=${params.block_size}, c=${params.c}, min_len=${params.min_line_length}, min_area=${params.min_area}, aspect=${params.min_aspect}</p>
+        `;
+    })
+    .catch(err => {
+        area.innerHTML = `<p style="color:#ff6b66;">❌ 请求失败: ${err}</p>`;
+    });
+}
+
+function resetParams() {
+    document.getElementById('param-block_size').value = 21;
+    document.getElementById('param-c').value = -2;
+    document.getElementById('param-min_line_length').value = 15;
+    document.getElementById('param-min_area').value = 5;
+    document.getElementById('param-min_aspect').value = 2.0;
+    document.getElementById('param-blur').value = 5;
+    document.getElementById('param-morph').value = 3;
+    updateLabels();
+}
+
+function loadPreset(name) {
+    const presets = {
+        default: { block_size: 21, c: -2, min_line_length: 15, min_area: 5, min_aspect: 2.0, blur: 5, morph: 3 },
+        sensitive: { block_size: 15, c: -1, min_line_length: 10, min_area: 3, min_aspect: 1.5, blur: 3, morph: 1 },
+        strict: { block_size: 31, c: -5, min_line_length: 25, min_area: 10, min_aspect: 3.0, blur: 7, morph: 5 },
+    };
+    const p = presets[name];
+    if (!p) return;
+    document.getElementById('param-block_size').value = p.block_size;
+    document.getElementById('param-c').value = p.c;
+    document.getElementById('param-min_line_length').value = p.min_line_length;
+    document.getElementById('param-min_area').value = p.min_area;
+    document.getElementById('param-min_aspect').value = p.min_aspect;
+    document.getElementById('param-blur').value = p.blur;
+    document.getElementById('param-morph').value = p.morph;
+    updateLabels();
+}
+
+function updateLabels() {
+    document.getElementById('val-block_size').textContent = document.getElementById('param-block_size').value;
+    document.getElementById('val-c').textContent = document.getElementById('param-c').value;
+    document.getElementById('val-min_line_length').textContent = document.getElementById('param-min_line_length').value;
+    document.getElementById('val-min_area').textContent = document.getElementById('param-min_area').value;
+    document.getElementById('val-min_aspect').textContent = document.getElementById('param-min_aspect').value;
+    document.getElementById('val-blur').textContent = document.getElementById('param-blur').value;
+    document.getElementById('val-morph').textContent = document.getElementById('param-morph').value;
+}
+
+// 初始化标签
+updateLabels();
+</script>
+
+<style>
+.param-group {
+    margin-bottom: 1rem;
+}
+.param-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: #a0b0ff;
+    font-size: 0.9rem;
+}
+.param-group input[type="range"] {
+    width: 100%;
+    margin: 0.25rem 0;
+}
+.param-group small {
+    color: #666;
+    font-size: 0.75rem;
+}
+</style>
+{% endblock %}

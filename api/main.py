@@ -24,9 +24,10 @@ templates = Jinja2Templates(directory="api/templates")
 init_db()
 
 # 注册路由
-from api.routes import tasks, upload  # noqa: E404
+from api.routes import tasks, upload, detect  # noqa: E404
 app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
+app.include_router(detect.router, prefix="/api/detect", tags=["detect"])
 
 
 @app.get("/")
@@ -68,6 +69,11 @@ async def task_detail(request: Request, task_id: str):
 @app.get("/upload")
 async def upload_page(request: Request):
     return templates.TemplateResponse(request, "upload.html", {})
+
+
+@app.get("/tune")
+async def tune_page(request: Request):
+    return templates.TemplateResponse(request, "tune.html", {})
 
 
 @app.get("/history")
