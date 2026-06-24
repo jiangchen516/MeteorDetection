@@ -72,10 +72,15 @@ async def detect_with_params(req: dict):
             params.get("c", -1),
         )
 
-        # 形态学开运算
+        # 形态学闭运算（连接断裂的流星轨迹）
+        close_ksize = params.get("close", 3)
+        close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (close_ksize, close_ksize))
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, close_kernel)
+
+        # 形态学开运算（去噪）
         morph_ksize = params.get("morph", 1)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_ksize, morph_ksize))
-        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+        open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_ksize, morph_ksize))
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, open_kernel)
 
         # 连通域分析
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
