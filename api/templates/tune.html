@@ -185,10 +185,11 @@ function runDetection() {
             area.innerHTML = `<p style="color:#ff6b66;">❌ ${data.error}</p>`;
             return;
         }
-        // 显示结果图
+        // 显示结果图（添加时间戳防止缓存）
         if (data.result_image) {
             const resultUrl = toUrlPath(data.result_image);
-            area.innerHTML = `<img src="/${resultUrl}" style="max-width:100%; border-radius:6px;" alt="检测结果">`;
+            const timestamp = Date.now();
+            area.innerHTML = `<img src="/${resultUrl}?t=${timestamp}" style="max-width:100%; border-radius:6px;" alt="检测结果">`;
         }
         document.getElementById('resultCount').textContent = `(${data.detections} 个检测)`;
 
