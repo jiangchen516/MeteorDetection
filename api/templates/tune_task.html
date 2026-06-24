@@ -98,19 +98,16 @@
 
 <script>
 const taskId = "{{ task.id }}";
+const imagePath = "{{ image_path }}";
 
-// 加载图片列表（用于选择要检测的图片）
-fetch('/api/images/')
-    .then(r => r.json())
-    .then(data => {
-        const select = document.getElementById('imageSelect');
-        data.images.forEach(img => {
-            const opt = document.createElement('option');
-            opt.value = img.path;
-            opt.textContent = img.name;
-            select.appendChild(opt);
-        });
-    });
+// 页面加载时显示原图
+window.addEventListener('load', () => {
+    if (imagePath) {
+        const area = document.getElementById('resultArea');
+        area.innerHTML = `<img src="/${imagePath}" style="max-width:100%; border-radius:6px;" alt="原图"
+            onerror="this.parentElement.innerHTML='<p style=\\'color:#666;\\'>图片加载失败</p>'">`;
+    }
+});
 
 function getParams() {
     let blockSize = parseInt(document.getElementById('param-block_size').value);
@@ -136,7 +133,7 @@ function runDetection() {
     fetch('/api/detect/', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({image_path: "{{ image_path }}", params: params})
+        body: JSON.stringify({image_path: imagePath, params: params})
     })
     .then(r => r.json())
     .then(data => {

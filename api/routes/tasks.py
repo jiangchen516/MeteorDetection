@@ -194,13 +194,18 @@ async def save_result(task_id: str, req: dict):
     if not task:
         raise HTTPException(404, "Task not found")
 
-    # 获取图片路径
+    # 获取原始图片路径
     image_path = task.get("params", "{}")
     try:
         image_params = json.loads(image_path)
         img_path = image_params.get("image_path", "")
     except:
         img_path = ""
+
+    # 将绝对路径转换为 URL 路径
+    if img_path and "storage/" in img_path:
+        idx = img_path.index("storage/")
+        img_path = img_path[idx:]
 
     if not img_path:
         raise HTTPException(400, "No image path found in task params")

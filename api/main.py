@@ -84,14 +84,27 @@ async def tune_task_page(request: Request, task_id: str):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/dashboard")
 
-    # 获取图片路径
+    # 获取原始图片路径（从 params 中读取）
     image_path = ""
-    if task.get("result_image"):
-        image_path = task["result_image"]
-    elif task.get("result_images"):
-        images = json.loads(task["result_images"]) if isinstance(task["result_images"], str) else task["result_images"]
-        if images:
-            image_path = images[0]
+    try:
+        params = json.loads(task.get("params", "{}"))
+        image_path = params.get("image_path", "")
+    except:
+        pass
+
+    # 如果 params 中没有，则从 result_image 获取
+    if not image_path:
+        if task.get("result_image"):
+            image_path = task["result_image"]
+        elif task.get("result_images"):
+            images = json.loads(task["result_images"]) if isinstance(task["result_images"], str) else task["result_images"]
+            if images:
+                image_path = images[0]
+
+    # 将绝对路径转换为 URL 路径
+    if image_path and "storage/" in image_path:
+        idx = image_path.index("storage/")
+        image_path = "/" + image_path[idx:]
 
     return templates.TemplateResponse(request, "tune_task.html", {
         "task": task,
