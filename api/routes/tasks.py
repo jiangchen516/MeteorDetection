@@ -158,7 +158,15 @@ async def retry_task(task_id: str):
     else:
         raise HTTPException(400, f"Unknown task type: {task_type}")
 
-    upsert_task(task_id=task_id, status="PENDING", message="Retrying...", progress=0.0)
+    # 更新 created_at 以便重试的任务排到列表最前面
+    from datetime import datetime
+    now = datetime.utcnow().isoformat()
+    from api.models.database import get_connection
+    conn = get_connection()
+    conn.execute("UPDATE tasks SET status=?, message=?, progress=0.0, created_at=? WHERE id=?",
+                 ("PENDING", "Retrying...", now, task_id))
+    conn.commit()
+    conn.close()
     return {"status": "retry", "task_id": task_id}
 
 
