@@ -116,10 +116,14 @@ async def tune_task_page(request: Request, task_id: str):
     except:
         pass
 
+    from datetime import datetime
+    now = int(datetime.utcnow().timestamp())
+
     return templates.TemplateResponse(request, "tune_task.html", {
         "task": task,
         "image_path": image_path,
         "detection_params": detection_params,
+        "now": now,
     })
 
 
