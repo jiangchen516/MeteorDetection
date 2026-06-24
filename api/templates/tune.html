@@ -84,7 +84,7 @@
 
         <div class="card" style="margin-top:1rem;">
             <h2>🖼️ 检测结果 <span id="resultCount" style="font-size:0.9rem; color:#888;"></span></h2>
-            <div id="resultArea" style="margin-top:1rem; text-align:center;">
+            <div id="resultArea" style="margin-top:1rem; text-align:center; min-height:200px; display:flex; align-items:center; justify-content:center; border:2px dashed #2a2a4a; border-radius:8px;">
                 <p style="color:#666;">选择图片后点击"开始检测"</p>
             </div>
         </div>
@@ -110,13 +110,29 @@ fetch('/api/images/')
             opt.textContent = img.name;
             select.appendChild(opt);
         });
+        // 恢复上次选中的图片
+        const saved = localStorage.getItem('tune_selected_image');
+        if (saved) {
+            select.value = saved;
+            loadImagePreview();
+        }
     });
+
+// 将绝对路径转换为 URL 路径
+function toUrlPath(absPath) {
+    const idx = absPath.indexOf('storage/');
+    return idx >= 0 ? absPath.substring(idx) : absPath;
+}
 
 function loadImagePreview() {
     const path = document.getElementById('imageSelect').value;
     if (!path) return;
+    const urlPath = toUrlPath(path);
     const area = document.getElementById('resultArea');
-    area.innerHTML = `<img src="/${path}" style="max-width:100%; border-radius:6px;" alt="预览">`;
+    area.innerHTML = `<img src="/${urlPath}" style="max-width:100%; border-radius:6px;" alt="预览"
+        onerror="this.parentElement.innerHTML='<p style=\\'color:#ff6b66;\\'>❌ 图片加载失败</p>'">`;
+    // 保存到 localStorage
+    localStorage.setItem('tune_selected_image', path);
 }
 
 function uploadImage() {
@@ -171,7 +187,8 @@ function runDetection() {
         }
         // 显示结果图
         if (data.result_image) {
-            area.innerHTML = `<img src="/${data.result_image}" style="max-width:100%; border-radius:6px;" alt="检测结果">`;
+            const resultUrl = toUrlPath(data.result_image);
+            area.innerHTML = `<img src="/${resultUrl}" style="max-width:100%; border-radius:6px;" alt="检测结果">`;
         }
         document.getElementById('resultCount').textContent = `(${data.detections} 个检测)`;
 

@@ -3,6 +3,8 @@
 import time
 from pathlib import Path
 
+import cv2
+import numpy as np
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
@@ -39,7 +41,6 @@ async def detect_with_params(req: dict):
         return JSONResponse({"error": f"Image not found: {image_path}"}, status_code=404)
 
     try:
-        import cv2
         from core.detection.line_detector import LineDetector
         from core.utils.image_io import auto_load, save_image
 
