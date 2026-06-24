@@ -8,7 +8,7 @@
         <div style="margin-top: 1rem;">
             <div class="param-group">
                 <label>自适应阈值块大小: <span id="val-block_size">21</span></label>
-                <input type="range" id="param-block_size" min="11" max="71" step="2" value="21"
+                <input type="range" id="param-block_size" min="11" max="71" step="1" value="21"
                        oninput="document.getElementById('val-block_size').textContent=this.value">
                 <small>越小越灵敏，推荐 11-31</small>
             </div>
@@ -36,28 +36,28 @@
 
             <div class="param-group">
                 <label>最小长宽比: <span id="val-min_aspect">2.0</span></label>
-                <input type="range" id="param-min_aspect" min="1.0" max="5.0" step="0.5" value="2.0"
+                <input type="range" id="param-min_aspect" min="1.0" max="5.0" step="0.1" value="2.0"
                        oninput="document.getElementById('val-min_aspect').textContent=this.value">
                 <small>过滤点状噪点，推荐 1.5-3.0</small>
             </div>
 
             <div class="param-group">
                 <label>高斯模糊核: <span id="val-blur">5</span></label>
-                <input type="range" id="param-blur" min="3" max="11" step="2" value="5"
+                <input type="range" id="param-blur" min="3" max="11" step="1" value="5"
                        oninput="document.getElementById('val-blur').textContent=this.value">
                 <small>降噪，推荐 3-7</small>
             </div>
 
             <div class="param-group">
                 <label>闭运算核: <span id="val-close">3</span></label>
-                <input type="range" id="param-close" min="1" max="9" step="2" value="3"
+                <input type="range" id="param-close" min="1" max="9" step="1" value="3"
                        oninput="document.getElementById('val-close').textContent=this.value">
                 <small>连接断裂轨迹，推荐 3-5</small>
             </div>
 
             <div class="param-group">
                 <label>开运算核: <span id="val-morph">1</span></label>
-                <input type="range" id="param-morph" min="1" max="7" step="2" value="1"
+                <input type="range" id="param-morph" min="1" max="7" step="1" value="1"
                        oninput="document.getElementById('val-morph').textContent=this.value">
                 <small>去噪，推荐 1-3</small>
             </div>
@@ -162,8 +162,12 @@ function uploadImage() {
 }
 
 function getParams() {
+    // block_size 必须是奇数
+    let blockSize = parseInt(document.getElementById('param-block_size').value);
+    if (blockSize % 2 === 0) blockSize += 1;
+
     return {
-        block_size: parseInt(document.getElementById('param-block_size').value),
+        block_size: blockSize,
         c: parseInt(document.getElementById('param-c').value),
         min_line_length: parseInt(document.getElementById('param-min_line_length').value),
         min_area: parseInt(document.getElementById('param-min_area').value),
