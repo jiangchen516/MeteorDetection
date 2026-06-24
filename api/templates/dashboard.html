@@ -32,12 +32,19 @@
                 <td>{{ task.result_count or 0 }}</td>
                 <td>{{ task.created_at or '-' }}</td>
                 <td style="white-space: nowrap;">
-                    {% if task.status == 'RUNNING' %}
-                    <button class="btn btn-danger" hx-post="/api/tasks/{{ task.id }}/cancel" hx-swap="none">取消</button>
-                    {% elif task.status == 'FAILED' %}
-                    <button class="btn btn-primary" hx-post="/api/tasks/{{ task.id }}/retry" hx-swap="none">重试</button>
-                    {% endif %}
-                    <button class="btn btn-danger" hx-delete="/api/tasks/{{ task.id }}" hx-confirm="确定删除此任务？" hx-swap="none" style="margin-left:0.25rem;">删除</button>
+                    <div class="dropdown" style="position:relative; display:inline-block;">
+                        <button class="btn btn-primary" onclick="toggleDropdown('{{ task.id }}')" style="cursor:pointer;">操作 ▾</button>
+                        <div id="dropdown-{{ task.id }}" class="dropdown-menu" style="display:none; position:absolute; right:0; top:100%; background:#1a1a2e; border:1px solid #2a2a4a; border-radius:6px; min-width:100px; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+                            <a href="/tasks/{{ task.id }}" class="dropdown-item" style="display:block; padding:0.5rem 1rem; color:#ccc; text-decoration:none; border-bottom:1px solid #2a2a4a;">查看</a>
+                            {% if task.status == 'FAILED' %}
+                            <button class="dropdown-item" style="display:block; width:100%; padding:0.5rem 1rem; color:#ccc; background:none; border:none; border-bottom:1px solid #2a2a4a; text-align:left; cursor:pointer;" hx-post="/api/tasks/{{ task.id }}/retry" hx-swap="none">重试</button>
+                            {% endif %}
+                            {% if task.status == 'RUNNING' %}
+                            <button class="dropdown-item" style="display:block; width:100%; padding:0.5rem 1rem; color:#ccc; background:none; border:none; border-bottom:1px solid #2a2a4a; text-align:left; cursor:pointer;" hx-post="/api/tasks/{{ task.id }}/cancel" hx-swap="none">取消</button>
+                            {% endif %}
+                            <button class="dropdown-item" style="display:block; width:100%; padding:0.5rem 1rem; color:#ff6b6b; background:none; border:none; text-align:left; cursor:pointer;" hx-delete="/api/tasks/{{ task.id }}" hx-confirm="确定删除此任务？" hx-swap="none">删除</button>
+                        </div>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -62,6 +69,21 @@ curl -X POST http://localhost:8000/api/tasks/ \
 </div>
 
 <script>
+// 下拉菜单
+function toggleDropdown(taskId) {
+    const menu = document.getElementById('dropdown-' + taskId);
+    const allMenus = document.querySelectorAll('.dropdown-menu');
+    allMenus.forEach(m => { if (m.id !== 'dropdown-' + taskId) m.style.display = 'none'; });
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+// 点击外部关闭下拉菜单
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+    }
+});
+
 // 自动刷新运行中的任务
 setInterval(() => {
     const running = document.querySelectorAll('.badge-running');
@@ -70,4 +92,11 @@ setInterval(() => {
     }
 }, 3000);
 </script>
+
+<style>
+.dropdown-item:hover {
+    background: #2a2a4a !important;
+    color: #fff !important;
+}
+</style>
 {% endblock %}
