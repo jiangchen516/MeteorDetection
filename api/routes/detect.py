@@ -47,7 +47,7 @@ async def detect_with_params(req: dict):
         # 创建自定义检测器
         detector = LineDetector(_config_loaded=True)
         detector.adaptive_block_size = params.get("block_size", 21)
-        detector.adaptive_c = params.get("c", -2)
+        detector.adaptive_c = params.get("c", -1)
         detector.min_line_length = params.get("min_line_length", 15)
         detector.morph_kernel_size = params.get("morph", 3)
         # 覆盖 detect 方法中的参数
@@ -69,7 +69,7 @@ async def detect_with_params(req: dict):
             blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
             cv2.THRESH_BINARY,
             params.get("block_size", 21),
-            params.get("c", -2),
+            params.get("c", -1),
         )
 
         # 形态学开运算
@@ -93,12 +93,12 @@ async def detect_with_params(req: dict):
             if aspect < params.get("min_aspect", 2.0):
                 continue
 
-            # 边缘过滤
+            # 边缘过滤（保留距边缘 10px 以上的检测）
             x = stats[i, cv2.CC_STAT_LEFT]
             y = stats[i, cv2.CC_STAT_TOP]
             cx, cy = centroids[i]
             dist_to_edge = min(cx, cy, w - cx, h - cy)
-            if dist_to_edge < 5:
+            if dist_to_edge < 10:
                 continue
 
             detections += 1

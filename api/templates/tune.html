@@ -14,8 +14,8 @@
             </div>
 
             <div class="param-group">
-                <label>自适应阈值偏移: <span id="val-c">-2</span></label>
-                <input type="range" id="param-c" min="-10" max="0" step="1" value="-2"
+                <label>自适应阈值偏移: <span id="val-c">-1</span></label>
+                <input type="range" id="param-c" min="-10" max="0" step="1" value="-1"
                        oninput="document.getElementById('val-c').textContent=this.value">
                 <small>负值越小越灵敏，推荐 -5 ~ -1</small>
             </div>
@@ -208,7 +208,7 @@ function runDetection() {
 
 function resetParams() {
     document.getElementById('param-block_size').value = 21;
-    document.getElementById('param-c').value = -2;
+    document.getElementById('param-c').value = -1;
     document.getElementById('param-min_line_length').value = 15;
     document.getElementById('param-min_area').value = 5;
     document.getElementById('param-min_aspect').value = 2.0;
@@ -219,7 +219,7 @@ function resetParams() {
 
 function loadPreset(name) {
     const presets = {
-        default: { block_size: 21, c: -2, min_line_length: 15, min_area: 5, min_aspect: 2.0, blur: 5, morph: 3 },
+        default: { block_size: 21, c: -1, min_line_length: 15, min_area: 5, min_aspect: 2.0, blur: 5, morph: 3 },
         sensitive: { block_size: 15, c: -1, min_line_length: 10, min_area: 3, min_aspect: 1.5, blur: 3, morph: 1 },
         strict: { block_size: 31, c: -5, min_line_length: 25, min_area: 10, min_aspect: 3.0, blur: 7, morph: 5 },
     };
