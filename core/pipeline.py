@@ -56,6 +56,19 @@ class MeteorPipeline:
         self.tracker = MeteorTracker()
         self.results: list[dict] = []
 
+    def get_params(self) -> dict:
+        """获取当前检测参数."""
+        return {
+            "block_size": self.detector.adaptive_block_size,
+            "c": self.detector.adaptive_c,
+            "min_line_length": self.detector.min_line_length,
+            "min_area": 5,  # 硬编码值，与 detect 方法一致
+            "min_aspect": 2.0,  # 硬编码值
+            "blur": 5,  # 硬编码值
+            "close": 3,  # 硬编码值
+            "morph": self.detector.morph_kernel_size,
+        }
+
     def _report(self, message: str, fraction: float) -> None:
         logger.info(f"[{fraction:.0%}] {message}")
         if self.progress_cb:

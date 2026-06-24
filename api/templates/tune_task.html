@@ -21,50 +21,50 @@
             </div>
 
             <div class="param-group">
-                <label>自适应阈值块大小: <span id="val-block_size">21</span></label>
-                <input type="range" id="param-block_size" min="11" max="71" step="1" value="21"
+                <label>自适应阈值块大小: <span id="val-block_size">{{ detection_params.get('block_size', 21) }}</span></label>
+                <input type="range" id="param-block_size" min="11" max="71" step="1" value="{{ detection_params.get('block_size', 21) }}"
                        oninput="document.getElementById('val-block_size').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>自适应阈值偏移: <span id="val-c">-1</span></label>
-                <input type="range" id="param-c" min="-10" max="0" step="1" value="-1"
+                <label>自适应阈值偏移: <span id="val-c">{{ detection_params.get('c', -1) }}</span></label>
+                <input type="range" id="param-c" min="-10" max="0" step="1" value="{{ detection_params.get('c', -1) }}"
                        oninput="document.getElementById('val-c').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>最小线长: <span id="val-min_line_length">15</span></label>
-                <input type="range" id="param-min_line_length" min="5" max="50" step="1" value="15"
+                <label>最小线长: <span id="val-min_line_length">{{ detection_params.get('min_line_length', 15) }}</span></label>
+                <input type="range" id="param-min_line_length" min="5" max="50" step="1" value="{{ detection_params.get('min_line_length', 15) }}"
                        oninput="document.getElementById('val-min_line_length').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>最小面积: <span id="val-min_area">5</span></label>
-                <input type="range" id="param-min_area" min="1" max="30" step="1" value="5"
+                <label>最小面积: <span id="val-min_area">{{ detection_params.get('min_area', 5) }}</span></label>
+                <input type="range" id="param-min_area" min="1" max="30" step="1" value="{{ detection_params.get('min_area', 5) }}"
                        oninput="document.getElementById('val-min_area').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>最小长宽比: <span id="val-min_aspect">2.0</span></label>
-                <input type="range" id="param-min_aspect" min="1.0" max="5.0" step="0.1" value="2.0"
+                <label>最小长宽比: <span id="val-min_aspect">{{ detection_params.get('min_aspect', 2.0) }}</span></label>
+                <input type="range" id="param-min_aspect" min="1.0" max="5.0" step="0.1" value="{{ detection_params.get('min_aspect', 2.0) }}"
                        oninput="document.getElementById('val-min_aspect').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>高斯模糊核: <span id="val-blur">5</span></label>
-                <input type="range" id="param-blur" min="3" max="11" step="1" value="5"
+                <label>高斯模糊核: <span id="val-blur">{{ detection_params.get('blur', 5) }}</span></label>
+                <input type="range" id="param-blur" min="3" max="11" step="1" value="{{ detection_params.get('blur', 5) }}"
                        oninput="document.getElementById('val-blur').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>闭运算核: <span id="val-close">3</span></label>
-                <input type="range" id="param-close" min="1" max="9" step="1" value="3"
+                <label>闭运算核: <span id="val-close">{{ detection_params.get('close', 3) }}</span></label>
+                <input type="range" id="param-close" min="1" max="9" step="1" value="{{ detection_params.get('close', 3) }}"
                        oninput="document.getElementById('val-close').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>开运算核: <span id="val-morph">1</span></label>
-                <input type="range" id="param-morph" min="1" max="7" step="1" value="1"
+                <label>开运算核: <span id="val-morph">{{ detection_params.get('morph', 1) }}</span></label>
+                <input type="range" id="param-morph" min="1" max="7" step="1" value="{{ detection_params.get('morph', 1) }}"
                        oninput="document.getElementById('val-morph').textContent=this.value">
             </div>
         </div>
@@ -184,14 +184,16 @@ function saveResult() {
 }
 
 function resetParams() {
-    document.getElementById('param-block_size').value = 21;
-    document.getElementById('param-c').value = -1;
-    document.getElementById('param-min_line_length').value = 15;
-    document.getElementById('param-min_area').value = 5;
-    document.getElementById('param-min_aspect').value = 2.0;
-    document.getElementById('param-blur').value = 5;
-    document.getElementById('param-close').value = 3;
-    document.getElementById('param-morph').value = 1;
+    // 使用任务保存的参数，如果没有则使用默认值
+    const savedParams = {{ detection_params|tojson }};
+    document.getElementById('param-block_size').value = savedParams.block_size || 21;
+    document.getElementById('param-c').value = savedParams.c || -1;
+    document.getElementById('param-min_line_length').value = savedParams.min_line_length || 15;
+    document.getElementById('param-min_area').value = savedParams.min_area || 5;
+    document.getElementById('param-min_aspect').value = savedParams.min_aspect || 2.0;
+    document.getElementById('param-blur').value = savedParams.blur || 5;
+    document.getElementById('param-close').value = savedParams.close || 3;
+    document.getElementById('param-morph').value = savedParams.morph || 1;
     updateLabels();
 }
 

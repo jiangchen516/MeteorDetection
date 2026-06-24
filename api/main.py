@@ -106,9 +106,20 @@ async def tune_task_page(request: Request, task_id: str):
         idx = image_path.index("storage/")
         image_path = "/" + image_path[idx:]
 
+    # 获取保存的检测参数
+    detection_params = {}
+    try:
+        params = json.loads(task.get("params", "{}"))
+        # 如果是旧任务（只有 image_path），则不传参数，使用默认值
+        if "block_size" in params:
+            detection_params = params
+    except:
+        pass
+
     return templates.TemplateResponse(request, "tune_task.html", {
         "task": task,
         "image_path": image_path,
+        "detection_params": detection_params,
     })
 
 

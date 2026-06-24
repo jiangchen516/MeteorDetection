@@ -63,7 +63,8 @@ def process_single(self, image_path: str, background_path: str | None = None,
         _update_task(task_id=task_id, status="SUCCESS", progress=1.0,
                      message=f"Done: {len(results)} detections",
                      result_count=len(results),
-                     result_image=annotated_path)
+                     result_image=annotated_path,
+                     params=json.dumps(pipeline.get_params()))
 
         return {"detections": len(results), "output_dir": output_dir}
 
@@ -114,7 +115,8 @@ def process_batch(self, image_dir: str, background_path: str | None = None,
         _update_task(task_id=task_id, status="SUCCESS", progress=1.0,
                      message=f"Done: {len(results)} detections",
                      result_count=len(results),
-                     result_images=result_images_str)
+                     result_images=result_images_str,
+                     params=json.dumps(pipeline.get_params()))
 
         return {"detections": len(results), "output_dir": output_dir}
 
