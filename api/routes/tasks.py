@@ -184,6 +184,147 @@ async def delete_task(task_id: str):
     return {"status": "deleted", "task_id": task_id}
 
 
+@router.post("/{task_id}/save")
+async def save_result(task_id: str, req: dict):
+    """保存检测结果到任务."""
+    params = req.get("params", {})
+
+    # 运行检测
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    # 获取图片路径
+    image_path = task.get("params", "{}")
+    try:
+        image_params = json.loads(image_path)
+        img_path = image_params.get("image_path", "")
+    except:
+        img_path = ""
+
+    if not img_path:
+        raise HTTPException(400, "No image path found in task params")
+
+    # 运行检测
+    import time
+    start_time = time.time()
+
+    import cv2
+    import numpy as np
+    from pathlib import Path
+    from core.utils.image_io import auto_load, save_image
+    from core.utils.visualization import draw_detections
+    from core.detection.line_detector import DetectionResult
+
+    path = Path(img_path)
+    if not path.exists():
+        raise HTTPException(404, f"Image not found: {img_path}")
+
+    image = auto_load(path)
+    if image is None:
+        raise HTTPException(400, "Failed to load image")
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+    blur_ksize = params.get("blur", 5)
+    blur = cv2.GaussianBlur(gray, (blur_ksize, blur_ksize), 0)
+    binary = cv2.adaptiveThreshold(
+        blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        params.get("block_size", 21),
+        params.get("c", -1),
+    )
+
+    # 形态学闭运算
+    close_ksize = params.get("close", 3)
+    close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (close_ksize, close_ksize))
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, close_kernel)
+
+    # 形态学开运算
+    morph_ksize = params.get("morph", 1)
+    open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_ksize, morph_ksize))
+    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, open_kernel)
+
+    # 连通域分析
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
+
+    det_results = []
+    h, w = gray.shape[:2]
+    for i in range(1, num_labels):
+        area = stats[i, cv2.CC_STAT_AREA]
+        bw = stats[i, cv2.CC_STAT_WIDTH]
+        bh = stats[i, cv2.CC_STAT_HEIGHT]
+        aspect = max(bw, bh) / max(min(bw, bh), 1)
+        cx, cy = centroids[i]
+
+        if area < params.get("min_area", 5):
+            continue
+        if aspect < params.get("min_aspect", 2.0):
+            continue
+
+        dist_to_edge = min(cx, cy, w - cx, h - cy)
+        if dist_to_edge < 10:
+            continue
+
+        component_mask = (labels == i).astype(np.uint8) * 255
+        contours, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            continue
+
+        rect = cv2.minAreaRect(np.vstack(contours))
+        (rcx, rcy), (rw, rh), angle = rect
+        length = max(rw, rh)
+        width = min(rw, rh)
+
+        if length < params.get("min_line_length", 15) or width > 20:
+            continue
+
+        box = cv2.boxPoints(rect)
+        box_pts = [(int(p[0]), int(p[1])) for p in box]
+        dx_long = box_pts[2][0] - box_pts[1][0]
+        dy_long = box_pts[2][1] - box_pts[1][1]
+        x1, y1 = int(rcx - dx_long / 2), int(rcy - dy_long / 2)
+        x2, y2 = int(rcx + dx_long / 2), int(rcy + dy_long / 2)
+
+        mean_bright = float(gray[component_mask > 0].mean()) if area > 0 else 0
+
+        det_results.append(DetectionResult(
+            x1=x1, y1=y1, x2=x2, y2=y2,
+            brightness=mean_bright,
+            score=min(length / 100.0, 1.0),
+            confidence=min(aspect / 10.0, 1.0),
+            width=width,
+            box_points=box_pts,
+        ))
+
+    elapsed = time.time() - start_time
+
+    # 保存标注图
+    output_dir = Path("storage/results") / task_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    annotated = draw_detections(image, det_results)
+    result_path = output_dir / f"{path.stem}_detected.jpg"
+    save_image(annotated, result_path)
+
+    # 更新任务
+    result_images = [str(result_path)]
+    _update_task(
+        task_id=task_id,
+        status="SUCCESS",
+        progress=1.0,
+        message=f"Done: {len(det_results)} detections (tuned)",
+        result_count=len(det_results),
+        result_image=str(result_path),
+        result_images=result_images,
+    )
+
+    return {
+        "status": "saved",
+        "detections": len(det_results),
+        "time": elapsed,
+        "result_image": str(result_path),
+    }
+
+
 @router.get("/{task_id}/images")
 async def get_task_images(task_id: str):
     """获取批量任务的所有标注图路径."""

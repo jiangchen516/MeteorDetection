@@ -76,6 +76,29 @@ async def tune_page(request: Request):
     return templates.TemplateResponse(request, "tune.html", {})
 
 
+@app.get("/tune/{task_id}")
+async def tune_task_page(request: Request, task_id: str):
+    from api.models.database import get_task
+    task = get_task(task_id)
+    if not task:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/dashboard")
+
+    # 获取图片路径
+    image_path = ""
+    if task.get("result_image"):
+        image_path = task["result_image"]
+    elif task.get("result_images"):
+        images = json.loads(task["result_images"]) if isinstance(task["result_images"], str) else task["result_images"]
+        if images:
+            image_path = images[0]
+
+    return templates.TemplateResponse(request, "tune_task.html", {
+        "task": task,
+        "image_path": image_path,
+    })
+
+
 @app.get("/history")
 async def history_page(request: Request):
     return templates.TemplateResponse(request, "history.html", {})

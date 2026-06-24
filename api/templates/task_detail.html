@@ -23,6 +23,10 @@
     <div style="margin-top: 1rem;">
         <button class="btn btn-danger" hx-post="/api/tasks/{{ task.id }}/cancel" hx-swap="none">取消任务</button>
     </div>
+    {% elif task.status == 'SUCCESS' or task.status == 'FAILED' %}
+    <div style="margin-top: 1rem;">
+        <a href="/tune/{{ task.id }}" class="btn btn-primary">⚙️ 调整参数</a>
+    </div>
     {% endif %}
     {% else %}
     <p class="empty">任务不存在</p>
