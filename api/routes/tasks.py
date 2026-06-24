@@ -124,12 +124,10 @@ async def cancel_task(task_id: str):
 
 @router.post("/{task_id}/retry")
 async def retry_task(task_id: str):
-    """重试失败的任务."""
+    """重试任务（任何状态都可以重试）."""
     task = get_task(task_id)
     if not task:
         raise HTTPException(404, "Task not found")
-    if task.get("status") != "FAILED":
-        raise HTTPException(400, "Only failed tasks can be retried")
 
     # 重新提交任务
     task_type = task.get("task_type", "batch")
