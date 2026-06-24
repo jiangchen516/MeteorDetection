@@ -36,9 +36,16 @@ async def detect_with_params(req: dict):
     if not image_path:
         return JSONResponse({"error": "image_path required"}, status_code=400)
 
-    path = Path(image_path)
+    # 将 URL 路径转换为绝对路径
+    if image_path.startswith('/'):
+        # 去掉开头的 /，然后相对于项目根目录
+        relative_path = image_path[1:]
+        path = Path(relative_path)
+    else:
+        path = Path(image_path)
+
     if not path.exists():
-        return JSONResponse({"error": f"Image not found: {image_path}"}, status_code=404)
+        return JSONResponse({"error": f"Image not found: {image_path} (resolved: {path})"}, status_code=404)
 
     try:
         from core.detection.line_detector import LineDetector
