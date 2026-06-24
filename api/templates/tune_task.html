@@ -83,7 +83,12 @@
         <div class="card">
             <h3>🖼️ 检测结果 <span id="resultCount" style="font-size:0.9rem; color:#888;"></span></h3>
             <div id="resultArea" style="margin-top:1rem; text-align:center; min-height:200px; display:flex; align-items:center; justify-content:center; border:2px dashed #2a2a4a; border-radius:8px;">
+                {% if image_path %}
+                <img src="{{ image_path }}" style="max-width:100%; border-radius:6px;" alt="原图"
+                     onerror="this.parentElement.innerHTML='<p style=\'color:#666;\'>图片加载失败</p>'">
+                {% else %}
                 <p style="color:#666;">调整参数后点击"开始检测"</p>
+                {% endif %}
             </div>
         </div>
 
@@ -104,7 +109,7 @@ const imagePath = "{{ image_path }}";
 window.addEventListener('load', () => {
     if (imagePath) {
         const area = document.getElementById('resultArea');
-        area.innerHTML = `<img src="/${imagePath}" style="max-width:100%; border-radius:6px;" alt="原图"
+        area.innerHTML = `<img src="${imagePath}" style="max-width:100%; border-radius:6px;" alt="原图"
             onerror="this.parentElement.innerHTML='<p style=\\'color:#666;\\'>图片加载失败</p>'">`;
     }
 });
@@ -143,7 +148,8 @@ function runDetection() {
         }
         if (data.result_image) {
             const timestamp = Date.now();
-            area.innerHTML = `<img src="/${data.result_image}?t=${timestamp}" style="max-width:100%; border-radius:6px;" alt="检测结果">`;
+            const resultUrl = data.result_image.startsWith('/') ? data.result_image : '/' + data.result_image;
+            area.innerHTML = `<img src="${resultUrl}?t=${timestamp}" style="max-width:100%; border-radius:6px;" alt="检测结果">`;
         }
         document.getElementById('resultCount').textContent = `(${data.detections} 个检测)`;
         document.getElementById('statsArea').innerHTML = `
