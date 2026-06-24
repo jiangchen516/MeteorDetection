@@ -67,7 +67,8 @@ class LineDetector:
     adaptive_block_size: int = 21    # 自适应阈值块大小（更小更灵敏）
     adaptive_c: float = -2.0         # 自适应阈值偏移
     min_line_length: int = 15        # 最小线长（检测更短的流星）
-    morph_kernel_size: int = 3       # 形态学核大小
+    morph_kernel_size: int = 1       # 形态学开运算核大小
+    close_kernel_size: int = 3       # 形态学闭运算核大小（连接断裂轨迹）
     use_fixed_threshold: bool = False  # 使用自适应阈值
     fixed_threshold: int = 15         # 固定阈值（0-255），更低更灵敏
 
@@ -112,6 +113,13 @@ class LineDetector:
                 cv2.THRESH_BINARY, self.adaptive_block_size, self.adaptive_c,
             )
 
+        # 形态学闭运算（连接断裂的流星轨迹）
+        if self.close_kernel_size > 0:
+            close_kernel = cv2.getStructuringElement(
+                cv2.MORPH_ELLIPSE, (self.close_kernel_size, self.close_kernel_size)
+            )
+            binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, close_kernel)
+
         # 形态学开运算去噪
         open_kernel = cv2.getStructuringElement(
             cv2.MORPH_ELLIPSE, (self.morph_kernel_size, self.morph_kernel_size)
@@ -139,6 +147,12 @@ class LineDetector:
             # 长宽比过滤（流星是拉长的，但断裂的流星可能长宽比低）
             aspect = max(bw, bh) / max(min(bw, bh), 1)
             if aspect < 2.0:
+                continue
+
+            # 边缘过滤（排除距边缘<10px的检测）
+            cx, cy = centroids[i]
+            dist_to_edge = min(cx, cy, w - cx, h - cy)
+            if dist_to_edge < 10:
                 continue
 
             # 最小外接旋转矩形

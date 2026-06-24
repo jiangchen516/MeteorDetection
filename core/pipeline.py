@@ -65,7 +65,7 @@ class MeteorPipeline:
             "min_area": 5,  # 硬编码值，与 detect 方法一致
             "min_aspect": 2.0,  # 硬编码值
             "blur": 5,  # 硬编码值
-            "close": 3,  # 硬编码值
+            "close": self.detector.close_kernel_size,
             "morph": self.detector.morph_kernel_size,
         }
 
