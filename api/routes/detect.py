@@ -73,7 +73,7 @@ async def detect_with_params(req: dict):
         )
 
         # 形态学开运算
-        morph_ksize = params.get("morph", 3)
+        morph_ksize = params.get("morph", 1)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_ksize, morph_ksize))
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
 
