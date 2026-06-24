@@ -25,12 +25,13 @@ async def create_task(req: TaskCreate):
     task_id = str(uuid.uuid4())
     task_type_str = req.task_type.value
 
-    # 先写入数据库
+    # 先写入数据库（保存 params 以便重试）
     upsert_task(
         task_id=task_id,
         task_type=task_type_str,
         status="PENDING",
         message="Task queued",
+        params=json.dumps(req.params),
     )
 
     if task_type_str == "single":
@@ -141,7 +142,7 @@ async def retry_task(task_id: str):
     if task_type == "single":
         image_path = params.get("image_path")
         if not image_path:
-            raise HTTPException(400, "Cannot retry: image_path not found in params")
+            raise HTTPException(400, "Cannot retry: image_path not found in params (task may be created before v0.2)")
         process_single.apply_async(
             args=[image_path],
             kwargs={"background_path": params.get("background_path")},
@@ -150,7 +151,7 @@ async def retry_task(task_id: str):
     elif task_type == "batch":
         image_dir = params.get("image_dir")
         if not image_dir:
-            raise HTTPException(400, "Cannot retry: image_dir not found in params")
+            raise HTTPException(400, "Cannot retry: image_dir not found in params (task may be created before v0.2)")
         process_batch.apply_async(
             args=[image_dir],
             kwargs={"background_path": params.get("background_path")},
