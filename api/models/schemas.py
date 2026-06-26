@@ -24,6 +24,7 @@ class TaskType(str, Enum):
 class TaskCreate(BaseModel):
     task_type: TaskType = TaskType.BATCH
     params: dict[str, Any] = Field(default_factory=dict)
+    enable_rectify: bool = False
 
 
 class TaskResponse(BaseModel):

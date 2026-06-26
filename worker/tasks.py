@@ -28,7 +28,7 @@ def _add_detection(task_id: str, det: dict) -> None:
 
 @app.task(bind=True, name="worker.tasks.process_single")
 def process_single(self, image_path: str, background_path: str | None = None,
-                   output_dir: str | None = None) -> dict:
+                   output_dir: str | None = None, enable_rectify: bool = False) -> dict:
     """处理单张图片."""
     task_id = self.request.id
     setup_logging()
@@ -48,7 +48,7 @@ def process_single(self, image_path: str, background_path: str | None = None,
             from core.utils.image_io import auto_load
             bg = auto_load(background_path)
 
-        pipeline = MeteorPipeline(background_image=bg)
+        pipeline = MeteorPipeline(background_image=bg, enable_rectify=enable_rectify)
 
         def progress_cb(msg, frac):
             _update_task(task_id=task_id, progress=frac, message=msg)
@@ -76,7 +76,7 @@ def process_single(self, image_path: str, background_path: str | None = None,
 
 @app.task(bind=True, name="worker.tasks.process_batch")
 def process_batch(self, image_dir: str, background_path: str | None = None,
-                  output_dir: str | None = None) -> dict:
+                  output_dir: str | None = None, enable_rectify: bool = False) -> dict:
     """批量处理目录."""
     task_id = self.request.id
     setup_logging()
@@ -96,7 +96,7 @@ def process_batch(self, image_dir: str, background_path: str | None = None,
         if background_path:
             bg = auto_load(background_path)
 
-        pipeline = MeteorPipeline(background_image=bg)
+        pipeline = MeteorPipeline(background_image=bg, enable_rectify=enable_rectify)
 
         def progress_cb(msg, frac):
             _update_task(task_id=task_id, progress=frac, message=msg)

@@ -40,7 +40,10 @@ async def create_task(req: TaskCreate):
             raise HTTPException(400, "image_path required for single task")
         process_single.apply_async(
             args=[image_path],
-            kwargs={"background_path": req.params.get("background_path")},
+            kwargs={
+                "background_path": req.params.get("background_path"),
+                "enable_rectify": req.enable_rectify,
+            },
             task_id=task_id,
         )
     elif task_type_str == "batch":
@@ -49,7 +52,10 @@ async def create_task(req: TaskCreate):
             raise HTTPException(400, "image_dir required for batch task")
         process_batch.apply_async(
             args=[image_dir],
-            kwargs={"background_path": req.params.get("background_path")},
+            kwargs={
+                "background_path": req.params.get("background_path"),
+                "enable_rectify": req.enable_rectify,
+            },
             task_id=task_id,
         )
     else:

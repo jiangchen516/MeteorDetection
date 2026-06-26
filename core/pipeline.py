@@ -23,6 +23,33 @@ from core.classification.meteor_classifier import (
 logger = get_logger(__name__)
 
 
+def _is_fisheye_image(meta) -> bool:
+    """Auto-detect if an image is from a fisheye lens.
+
+    Checks:
+    - Camera model (known fisheye cameras)
+    - Focal length (< 16mm is likely fisheye)
+    - Image aspect ratio (circular fisheye is ~1:1)
+    """
+    # Check camera model for known fisheye cameras
+    fisheye_keywords = ["fisheye", "sigma", "okinawa", "ronikon", "samyang"]
+    camera_str = f"{meta.camera_make} {meta.camera_model}".lower()
+    if any(kw in camera_str for kw in fisheye_keywords):
+        return True
+
+    # Check focal length (fisheye is typically < 16mm)
+    if 0 < meta.focal_length < 16:
+        return True
+
+    # Check aspect ratio (circular fisheye is close to 1:1)
+    if meta.width > 0 and meta.height > 0:
+        ratio = meta.width / meta.height
+        if 0.9 < ratio < 1.1 and meta.width == meta.height:
+            return True
+
+    return False
+
+
 class MeteorPipeline:
     """流星检测流水线.
 
@@ -114,9 +141,19 @@ class MeteorPipeline:
 
         image = auto_load(image_path)
 
+        # Auto-detect fisheye and warn if not rectifying
+        if not self.enable_rectify and _is_fisheye_image(meta):
+            logger.warning(
+                f"Fisheye image detected but rectification is disabled: {image_path.name}. "
+                f"Camera: {meta.camera_make} {meta.camera_model}, "
+                f"Focal length: {meta.focal_length}mm. "
+                f"Consider enabling rectify=True for better results."
+            )
+
         if self.enable_rectify:
             self._report("Rectifying fisheye", 0.15)
             rectify_fisheye(image_path, image_path)
+            image = auto_load(image_path)  # Reload rectified image
 
         # 检测（直接在原图上连通域分析，不依赖背景差分）
         self._report("Detecting lines", 0.6)
