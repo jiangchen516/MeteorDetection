@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}流星探测{% endblock %}</title>
+    <title>{% block title %}Meteor Detection{% endblock %}</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -33,6 +33,10 @@
         .btn-primary:hover { background: #5070ff; }
         .btn-danger { background: #cc3333; color: #fff; }
         .btn-danger:hover { background: #dd4444; }
+        .btn-secondary { background: #2a2a4a; color: #ccc; }
+        .btn-secondary:hover { background: #3a3a5a; }
+        .btn-success { background: #2a6a2a; color: #fff; }
+        .btn-success:hover { background: #3a7a3a; }
         .upload-zone { border: 2px dashed #4060ff; border-radius: 8px; padding: 3rem; text-align: center; cursor: pointer; transition: all 0.2s; }
         .upload-zone:hover { background: #1a1a3a; border-color: #6080ff; }
         .upload-zone.dragover { background: #202050; border-color: #80a0ff; }
@@ -46,11 +50,11 @@
 </head>
 <body>
     <nav class="navbar">
-        <span class="brand">☄️ 流星探测</span>
-        <a href="/dashboard">任务看板</a>
-        <a href="/upload">上传检测</a>
-        <a href="/tune">参数调整</a>
-        <a href="/history">历史记录</a>
+        <span class="brand">☄️ Meteor Detection</span>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/upload">Upload</a>
+        <a href="/tune">Tune Parameters</a>
+        <a href="/history">History</a>
     </nav>
     <div class="container">
         {% block content %}{% endblock %}

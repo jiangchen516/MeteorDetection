@@ -13,7 +13,7 @@ from core.utils.logging import setup_logging, get_logger
 setup_logging()
 logger = get_logger(__name__)
 
-app = FastAPI(title="流星探测", version="0.2.0")
+app = FastAPI(title="Meteor Detection", version="0.2.0")
 
 # 静态文件和模板
 app.mount("/static", StaticFiles(directory="api/static"), name="static")

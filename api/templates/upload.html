@@ -1,27 +1,27 @@
 {% extends "base.html" %}
-{% block title %}上传检测 — 流星探测{% endblock %}
+{% block title %}Upload — Meteor Detection{% endblock %}
 {% block content %}
 <div class="card">
-    <h2>📤 上传图片</h2>
+    <h2>📤 Upload Images</h2>
     <div style="margin-top: 1rem;">
-        <h3 style="margin-bottom: 0.5rem; color: #a0b0ff;">方式一：Web 上传</h3>
+        <h3 style="margin-bottom: 0.5rem; color: #a0b0ff;">Method 1: Web Upload</h3>
         <form id="uploadForm" enctype="multipart/form-data">
             <div class="upload-zone" id="dropZone"
                  onclick="document.getElementById('fileInput').click()">
-                <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">📁 点击或拖拽图片到此处</p>
-                <p style="color: #666; font-size: 0.9rem;">支持 JPG、PNG 格式</p>
+                <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">📁 Click or drag images here</p>
+                <p style="color: #666; font-size: 0.9rem;">Supports JPG, PNG formats</p>
                 <input type="file" id="fileInput" name="files" multiple accept="image/*"
                        style="display:none" onchange="handleFiles(this.files)">
             </div>
             <div id="fileList" style="margin-top: 1rem;"></div>
             <div style="margin-top: 1rem;">
-                <label style="display: block; margin-bottom: 0.5rem; color: #8090ff;">背景图片（可选）</label>
+                <label style="display: block; margin-bottom: 0.5rem; color: #8090ff;">Background image (optional)</label>
                 <input type="file" name="background" accept="image/*"
                        style="background: #1a1a3a; border: 1px solid #2a2a4a; padding: 0.5rem; border-radius: 6px; color: #e0e0e0;">
             </div>
             <div style="margin-top: 1rem; display: flex; gap: 1rem;">
-                <button type="button" class="btn btn-primary" onclick="submitSingle()">单张检测</button>
-                <button type="button" class="btn btn-primary" onclick="submitBatch()">批量检测</button>
+                <button type="button" class="btn btn-primary" onclick="submitSingle()">Single Detection</button>
+                <button type="button" class="btn btn-primary" onclick="submitBatch()">Batch Detection</button>
             </div>
         </form>
         <div id="result" style="margin-top: 1rem;"></div>
@@ -29,14 +29,14 @@
 </div>
 
 <div class="card">
-    <h3 style="margin-bottom: 0.5rem; color: #a0b0ff;">方式二：API 调用</h3>
+    <h3 style="margin-bottom: 0.5rem; color: #a0b0ff;">Method 2: API</h3>
     <pre style="background:#0a0a1a;padding:1rem;border-radius:6px;font-size:0.85rem;overflow-x:auto;">
-# 单张检测
+# Single detection
 curl -X POST http://localhost:8000/api/tasks/ \
   -H "Content-Type: application/json" \
   -d '{"task_type":"single","params":{"image_path":"/path/to/image.jpg","background_path":"/path/to/bg.jpg"}}'
 
-# 批量检测
+# Batch detection
 curl -X POST http://localhost:8000/api/tasks/ \
   -H "Content-Type: application/json" \
   -d '{"task_type":"batch","params":{"image_dir":"/path/to/images"}}'
@@ -58,7 +58,7 @@ function handleFiles(files) {
 
 function submitSingle() {
     if (uploadedFiles.length === 0) {
-        alert('请先选择图片');
+        alert('Please select an image first');
         return;
     }
     const formData = new FormData();
@@ -68,7 +68,7 @@ function submitSingle() {
 
     fetch('/api/upload/', { method: 'POST', body: formData })
         .then(r => {
-            if (!r.ok) throw new Error('上传失败: ' + r.status);
+            if (!r.ok) throw new Error('Upload failed: ' + r.status);
             return r.json();
         })
         .then(data => {
@@ -81,23 +81,23 @@ function submitSingle() {
             });
         })
         .then(r => {
-            if (!r.ok) throw new Error('创建任务失败: ' + r.status);
+            if (!r.ok) throw new Error('Task creation failed: ' + r.status);
             return r.json();
         })
         .then(task => {
             document.getElementById('result').innerHTML =
-                `<p style="color:#66cc66;">✅ 任务已创建: <a href="/tasks/${task.id}">${task.id.slice(0,8)}...</a></p>`;
+                `<p style="color:#66cc66;">✅ Task created: <a href="/tasks/${task.id}">${task.id.slice(0,8)}...</a></p>`;
         })
         .catch(e => {
             document.getElementById('result').innerHTML =
-                `<p style="color:#cc6666;">❌ 错误: ${e.message || e}</p>`;
+                `<p style="color:#cc6666;">❌ Error: ${e.message || e}</p>`;
             console.error(e);
         });
 }
 
 function submitBatch() {
     if (uploadedFiles.length === 0) {
-        alert('请先选择图片');
+        alert('Please select images first');
         return;
     }
     const formData = new FormData();
@@ -106,11 +106,11 @@ function submitBatch() {
     }
     fetch('/api/upload/batch', { method: 'POST', body: formData })
         .then(r => {
-            if (!r.ok) throw new Error('上传失败: ' + r.status);
+            if (!r.ok) throw new Error('Upload failed: ' + r.status);
             return r.json();
         })
         .then(data => {
-            if (!data.paths || data.paths.length === 0) throw new Error('没有获取到上传路径');
+            if (!data.paths || data.paths.length === 0) throw new Error('No upload paths received');
             const image_dir = data.paths[0].substring(0, data.paths[0].lastIndexOf('/'));
             return fetch('/api/tasks/', {
                 method: 'POST',
@@ -119,21 +119,21 @@ function submitBatch() {
             });
         })
         .then(r => {
-            if (!r.ok) throw new Error('创建任务失败: ' + r.status);
+            if (!r.ok) throw new Error('Task creation failed: ' + r.status);
             return r.json();
         })
         .then(task => {
             document.getElementById('result').innerHTML =
-                `<p style="color:#66cc66;">✅ 批量任务已创建: <a href="/tasks/${task.id}">${task.id.slice(0,8)}...</a></p>`;
+                `<p style="color:#66cc66;">✅ Batch task created: <a href="/tasks/${task.id}">${task.id.slice(0,8)}...</a></p>`;
         })
         .catch(e => {
             document.getElementById('result').innerHTML =
-                `<p style="color:#cc6666;">❌ 错误: ${e.message || e}</p>`;
+                `<p style="color:#cc6666;">❌ Error: ${e.message || e}</p>`;
             console.error(e);
         });
 }
 
-// 拖拽支持
+// Drag and drop support
 const dropZone = document.getElementById('dropZone');
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();

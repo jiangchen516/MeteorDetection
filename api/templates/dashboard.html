@@ -1,20 +1,20 @@
 {% extends "base.html" %}
-{% block title %}任务看板 — 流星探测{% endblock %}
+{% block title %}Dashboard — Meteor Detection{% endblock %}
 {% block content %}
 <div class="card">
-    <h2>📋 任务列表</h2>
+    <h2>📋 Task List</h2>
     {% if tasks %}
     <table>
         <thead>
             <tr>
                 <th>ID</th>
-                <th>类型</th>
-                <th>状态</th>
-                <th>进度</th>
-                <th>消息</th>
-                <th>结果数</th>
-                <th>创建时间</th>
-                <th>操作</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Message</th>
+                <th>Results</th>
+                <th>Created</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -32,17 +32,12 @@
                 <td>{{ task.result_count or 0 }}</td>
                 <td>{{ task.created_at[:16].replace('T', ' ') if task.created_at else '-' }}</td>
                 <td style="white-space: nowrap;">
-                    <div class="dropdown" style="position:relative; display:inline-block;">
-                        <button class="btn btn-primary" onclick="toggleDropdown('{{ task.id }}')" style="cursor:pointer;">操作 ▾</button>
-                        <div id="dropdown-{{ task.id }}" class="dropdown-menu" style="display:none; position:absolute; right:0; top:100%; background:#1a1a2e; border:1px solid #2a2a4a; border-radius:6px; min-width:100px; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
-                            <a href="/tasks/{{ task.id }}" class="dropdown-item" style="display:block; padding:0.5rem 1rem; color:#ccc; text-decoration:none; border-bottom:1px solid #2a2a4a;">查看</a>
-                            <button class="dropdown-item retry-btn" style="display:block; width:100%; padding:0.5rem 1rem; color:#ccc; background:none; border:none; border-bottom:1px solid #2a2a4a; text-align:left; cursor:pointer;" data-task-id="{{ task.id }}">重试</button>
-                            {% if task.status == 'RUNNING' %}
-                            <button class="dropdown-item cancel-btn" style="display:block; width:100%; padding:0.5rem 1rem; color:#ccc; background:none; border:none; border-bottom:1px solid #2a2a4a; text-align:left; cursor:pointer;" data-task-id="{{ task.id }}">取消</button>
-                            {% endif %}
-                            <button class="dropdown-item delete-btn" style="display:block; width:100%; padding:0.5rem 1rem; color:#ff6b6b; background:none; border:none; text-align:left; cursor:pointer;" data-task-id="{{ task.id }}">删除</button>
-                        </div>
-                    </div>
+                    {% if task.status == 'RUNNING' %}
+                    <button class="btn btn-danger" hx-post="/api/tasks/{{ task.id }}/cancel" hx-swap="none">Cancel</button>
+                    {% elif task.status == 'FAILED' %}
+                    <button class="btn btn-primary" hx-post="/api/tasks/{{ task.id }}/retry" hx-swap="none">Retry</button>
+                    {% endif %}
+                    <button class="btn btn-danger" hx-delete="/api/tasks/{{ task.id }}" hx-confirm="Delete this task?" hx-swap="none" style="margin-left:0.25rem;">Delete</button>
                 </td>
             </tr>
             {% endfor %}
@@ -50,15 +45,15 @@
     </table>
     {% else %}
     <div class="empty">
-        <p>暂无任务</p>
-        <p><a href="/upload">上传图片开始检测</a></p>
+        <p>No tasks yet</p>
+        <p><a href="/upload">Upload images to start detection</a></p>
     </div>
     {% endif %}
 </div>
 
 <div class="card">
-    <h2>🚀 快速开始</h2>
-    <p><a href="/upload">上传图片</a> 或使用 API 创建任务：</p>
+    <h2>🚀 Quick Start</h2>
+    <p><a href="/upload">Upload images</a> or use the API to create a task:</p>
     <pre style="background:#0a0a1a;padding:1rem;border-radius:6px;margin-top:0.5rem;font-size:0.85rem;">
 curl -X POST http://localhost:8000/api/tasks/ \
   -H "Content-Type: application/json" \
@@ -67,69 +62,7 @@ curl -X POST http://localhost:8000/api/tasks/ \
 </div>
 
 <script>
-// 下拉菜单
-function toggleDropdown(taskId) {
-    const menu = document.getElementById('dropdown-' + taskId);
-    const allMenus = document.querySelectorAll('.dropdown-menu');
-    allMenus.forEach(m => { if (m.id !== 'dropdown-' + taskId) m.style.display = 'none'; });
-    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-}
-
-// 点击外部关闭下拉菜单
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.dropdown')) {
-        document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
-    }
-});
-
-// 重试按钮
-document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('retry-btn')) {
-        const taskId = e.target.dataset.taskId;
-        fetch('/api/tasks/' + taskId + '/retry', { method: 'POST' })
-            .then(r => r.json())
-            .then(data => {
-                document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
-                const row = e.target.closest('tr');
-                if (row) {
-                    const badge = row.querySelector('.badge');
-                    if (badge) { badge.className = 'badge badge-pending'; badge.textContent = 'PENDING'; }
-                    const msg = row.querySelector('td:nth-child(5)');
-                    if (msg) msg.textContent = 'Retrying...';
-                    const progress = row.querySelector('.progress-fill');
-                    if (progress) progress.style.width = '0%';
-                }
-            })
-            .catch(err => console.error('Retry failed:', err));
-    }
-    if (e.target.classList.contains('cancel-btn')) {
-        const taskId = e.target.dataset.taskId;
-        fetch('/api/tasks/' + taskId + '/cancel', { method: 'POST' })
-            .then(r => r.json())
-            .then(data => {
-                document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
-                const row = e.target.closest('tr');
-                if (row) {
-                    const badge = row.querySelector('.badge');
-                    if (badge) { badge.className = 'badge badge-cancelled'; badge.textContent = 'CANCELLED'; }
-                }
-            })
-            .catch(err => console.error('Cancel failed:', err));
-    }
-    if (e.target.classList.contains('delete-btn')) {
-        if (!confirm('确定删除此任务？')) return;
-        const taskId = e.target.dataset.taskId;
-        fetch('/api/tasks/' + taskId, { method: 'DELETE' })
-            .then(r => r.json())
-            .then(data => {
-                const row = e.target.closest('tr');
-                if (row) row.remove();
-            })
-            .catch(err => console.error('Delete failed:', err));
-    }
-});
-
-// 自动刷新运行中的任务
+// Auto-refresh running tasks
 setInterval(() => {
     const running = document.querySelectorAll('.badge-running');
     if (running.length > 0) {

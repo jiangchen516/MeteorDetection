@@ -1,101 +1,101 @@
 {% extends "base.html" %}
-{% block title %}调整参数 — 流星探测{% endblock %}
+{% block title %}Tune Parameters — Meteor Detection{% endblock %}
 {% block content %}
 <div class="card">
-    <h2>⚙️ 调整参数</h2>
-    <p style="color: #888; margin-top: 0.5rem;">任务: {{ task.id[:8] }}... | 类型: {{ task.task_type }} | 当前状态: {{ task.status }}</p>
+    <h2>⚙️ Tune Parameters</h2>
+    <p style="color: #888; margin-top: 0.5rem;">Task: {{ task.id[:8] }}... | Type: {{ task.task_type }} | Status: {{ task.status }}</p>
 </div>
 
 <div class="grid-2" style="gap: 1.5rem; margin-top: 1rem;">
-    <!-- 左侧：参数控制面板 -->
+    <!-- Left: Parameter controls -->
     <div class="card">
-        <h3>检测参数</h3>
+        <h3>Detection Parameters</h3>
         <div style="margin-top: 1rem;">
             <div class="param-group">
-                <label>预设: </label>
+                <label>Preset: </label>
                 <select id="presetSelect" onchange="loadPreset(this.value)" style="background:#1a1a3a; border:1px solid #2a2a4a; border-radius:6px; color:#e0e0e0; padding:0.5rem;">
-                    <option value="default">默认</option>
-                    <option value="sensitive">高灵敏</option>
-                    <option value="strict">严格</option>
+                    <option value="default">Default</option>
+                    <option value="sensitive">Sensitive</option>
+                    <option value="strict">Strict</option>
                 </select>
             </div>
 
             <div class="param-group">
-                <label>自适应阈值块大小: <span id="val-block_size">{{ detection_params.get('block_size', 21) }}</span></label>
+                <label>Adaptive Threshold Block Size: <span id="val-block_size">{{ detection_params.get('block_size', 21) }}</span></label>
                 <input type="range" id="param-block_size" min="11" max="71" step="1" value="{{ detection_params.get('block_size', 21) }}"
                        oninput="document.getElementById('val-block_size').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>自适应阈值偏移: <span id="val-c">{{ detection_params.get('c', -1) }}</span></label>
-                <input type="range" id="param-c" min="-10" max="0" step="1" value="{{ detection_params.get('c', -1) }}"
+                <label>Adaptive Threshold Offset: <span id="val-c">{{ detection_params.get('c', -2) }}</span></label>
+                <input type="range" id="param-c" min="-10" max="0" step="1" value="{{ detection_params.get('c', -2) }}"
                        oninput="document.getElementById('val-c').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>最小线长: <span id="val-min_line_length">{{ detection_params.get('min_line_length', 15) }}</span></label>
+                <label>Min Line Length: <span id="val-min_line_length">{{ detection_params.get('min_line_length', 15) }}</span></label>
                 <input type="range" id="param-min_line_length" min="5" max="50" step="1" value="{{ detection_params.get('min_line_length', 15) }}"
                        oninput="document.getElementById('val-min_line_length').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>最小面积: <span id="val-min_area">{{ detection_params.get('min_area', 5) }}</span></label>
+                <label>Min Area: <span id="val-min_area">{{ detection_params.get('min_area', 5) }}</span></label>
                 <input type="range" id="param-min_area" min="1" max="30" step="1" value="{{ detection_params.get('min_area', 5) }}"
                        oninput="document.getElementById('val-min_area').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>最小长宽比: <span id="val-min_aspect">{{ detection_params.get('min_aspect', 2.0) }}</span></label>
+                <label>Min Aspect Ratio: <span id="val-min_aspect">{{ detection_params.get('min_aspect', 2.0) }}</span></label>
                 <input type="range" id="param-min_aspect" min="1.0" max="5.0" step="0.1" value="{{ detection_params.get('min_aspect', 2.0) }}"
                        oninput="document.getElementById('val-min_aspect').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>高斯模糊核: <span id="val-blur">{{ detection_params.get('blur', 5) }}</span></label>
+                <label>Gaussian Blur Kernel: <span id="val-blur">{{ detection_params.get('blur', 5) }}</span></label>
                 <input type="range" id="param-blur" min="3" max="11" step="1" value="{{ detection_params.get('blur', 5) }}"
                        oninput="document.getElementById('val-blur').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>闭运算核: <span id="val-close">{{ detection_params.get('close', 3) }}</span></label>
+                <label>Closing Kernel: <span id="val-close">{{ detection_params.get('close', 3) }}</span></label>
                 <input type="range" id="param-close" min="1" max="9" step="1" value="{{ detection_params.get('close', 3) }}"
                        oninput="document.getElementById('val-close').textContent=this.value">
             </div>
 
             <div class="param-group">
-                <label>开运算核: <span id="val-morph">{{ detection_params.get('morph', 1) }}</span></label>
+                <label>Opening Kernel: <span id="val-morph">{{ detection_params.get('morph', 1) }}</span></label>
                 <input type="range" id="param-morph" min="1" max="7" step="1" value="{{ detection_params.get('morph', 1) }}"
                        oninput="document.getElementById('val-morph').textContent=this.value">
             </div>
         </div>
 
         <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
-            <button class="btn btn-primary" onclick="runDetection()" style="flex:1;">🔍 开始检测</button>
-            <button class="btn btn-secondary" onclick="resetParams()">重置</button>
+            <button class="btn btn-primary" onclick="runDetection()" style="flex:1;">🔍 Start Detection</button>
+            <button class="btn btn-secondary" onclick="resetParams()">Reset</button>
         </div>
         <div style="margin-top: 0.5rem;">
-            <button class="btn btn-success" onclick="saveResult()" style="width:100%;">💾 保存结果到任务</button>
+            <button class="btn btn-success" onclick="saveResult()" style="width:100%;">💾 Save Result to Task</button>
         </div>
     </div>
 
-    <!-- 右侧：图片和结果 -->
+    <!-- Right: Image and results -->
     <div>
         <div class="card">
-            <h3>🖼️ 检测结果 <span id="resultCount" style="font-size:0.9rem; color:#888;"></span></h3>
+            <h3>🖼️ Detection Results <span id="resultCount" style="font-size:0.9rem; color:#888;"></span></h3>
             <div id="resultArea" style="margin-top:1rem; text-align:center; min-height:200px; display:flex; align-items:center; justify-content:center; border:2px dashed #2a2a4a; border-radius:8px;">
                 {% if image_path %}
-                <img src="{{ image_path }}?t={{ now }}" style="max-width:100%; border-radius:6px;" alt="当前结果"
-                     onerror="this.parentElement.innerHTML='<p style=\'color:#666;\'>图片加载失败</p>'">
+                <img src="{{ image_path }}?t={{ now }}" style="max-width:100%; border-radius:6px;" alt="Current result"
+                     onerror="this.parentElement.innerHTML='<p style=\'color:#666;\'>Image load failed</p>'">
                 {% else %}
-                <p style="color:#666;">调整参数后点击"开始检测"</p>
+                <p style="color:#666;">Adjust parameters and click "Start Detection"</p>
                 {% endif %}
             </div>
         </div>
 
         <div class="card" style="margin-top:1rem;">
-            <h3>📊 检测统计</h3>
+            <h3>📊 Statistics</h3>
             <div id="statsArea" style="margin-top:0.5rem; font-size:0.9rem; color:#aaa;">
-                <p>等待检测...</p>
+                <p>Waiting for detection...</p>
             </div>
         </div>
     </div>
@@ -104,15 +104,6 @@
 <script>
 const taskId = "{{ task.id }}";
 const imagePath = "{{ image_path }}";
-
-// 页面加载时显示原图
-window.addEventListener('load', () => {
-    if (imagePath) {
-        const area = document.getElementById('resultArea');
-        area.innerHTML = `<img src="${imagePath}" style="max-width:100%; border-radius:6px;" alt="原图"
-            onerror="this.parentElement.innerHTML='<p style=\\'color:#666;\\'>图片加载失败</p>'">`;
-    }
-});
 
 function getParams() {
     let blockSize = parseInt(document.getElementById('param-block_size').value);
@@ -133,7 +124,7 @@ function getParams() {
 function runDetection() {
     const params = getParams();
     const area = document.getElementById('resultArea');
-    area.innerHTML = '<p style="color:#888;">检测中...</p>';
+    area.innerHTML = '<p style="color:#888;">Detecting...</p>';
 
     fetch('/api/detect/', {
         method: 'POST',
@@ -149,16 +140,16 @@ function runDetection() {
         if (data.result_image) {
             const timestamp = Date.now();
             const resultUrl = data.result_image.startsWith('/') ? data.result_image : '/' + data.result_image;
-            area.innerHTML = `<img src="${resultUrl}?t=${timestamp}" style="max-width:100%; border-radius:6px;" alt="检测结果">`;
+            area.innerHTML = `<img src="${resultUrl}?t=${timestamp}" style="max-width:100%; border-radius:6px;" alt="Detection result">`;
         }
-        document.getElementById('resultCount').textContent = `(${data.detections} 个检测)`;
+        document.getElementById('resultCount').textContent = `(${data.detections} detections)`;
         document.getElementById('statsArea').innerHTML = `
-            <p>检测数: <strong>${data.detections}</strong></p>
-            <p>耗时: <strong>${data.time.toFixed(2)}s</strong></p>
+            <p>Detections: <strong>${data.detections}</strong></p>
+            <p>Time: <strong>${data.time.toFixed(2)}s</strong></p>
         `;
     })
     .catch(err => {
-        area.innerHTML = `<p style="color:#ff6b66;">❌ 请求失败: ${err}</p>`;
+        area.innerHTML = `<p style="color:#ff6b66;">❌ Request failed: ${err}</p>`;
     });
 }
 
@@ -172,22 +163,21 @@ function saveResult() {
     .then(r => r.json())
     .then(data => {
         if (data.status === 'saved') {
-            alert('结果已保存！');
+            alert('Result saved!');
             window.location.href = `/tasks/${taskId}`;
         } else {
-            alert('保存失败: ' + (data.error || '未知错误'));
+            alert('Save failed: ' + (data.error || 'Unknown error'));
         }
     })
     .catch(err => {
-        alert('保存失败: ' + err);
+        alert('Save failed: ' + err);
     });
 }
 
 function resetParams() {
-    // 使用任务保存的参数，如果没有则使用默认值
     const savedParams = {{ detection_params|tojson }};
     document.getElementById('param-block_size').value = savedParams.block_size || 21;
-    document.getElementById('param-c').value = savedParams.c || -1;
+    document.getElementById('param-c').value = savedParams.c || -2;
     document.getElementById('param-min_line_length').value = savedParams.min_line_length || 15;
     document.getElementById('param-min_area').value = savedParams.min_area || 5;
     document.getElementById('param-min_aspect').value = savedParams.min_aspect || 2.0;

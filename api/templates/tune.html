@@ -1,112 +1,112 @@
 {% extends "base.html" %}
-{% block title %}参数调整 — 流星探测{% endblock %}
+{% block title %}Tune Parameters — Meteor Detection{% endblock %}
 {% block content %}
 <div class="grid-2" style="gap: 1.5rem;">
-    <!-- 左侧：参数控制面板 -->
+    <!-- Left: Parameter controls -->
     <div class="card">
-        <h2>⚙️ 检测参数</h2>
+        <h2>⚙️ Detection Parameters</h2>
         <div style="margin-top: 1rem;">
             <div class="param-group">
-                <label>自适应阈值块大小: <span id="val-block_size">21</span></label>
+                <label>Adaptive Threshold Block Size: <span id="val-block_size">21</span></label>
                 <input type="range" id="param-block_size" min="11" max="71" step="1" value="21"
                        oninput="document.getElementById('val-block_size').textContent=this.value">
-                <small>越小越灵敏，推荐 11-31</small>
+                <small>Smaller = more sensitive, recommended 11-31</small>
             </div>
 
             <div class="param-group">
-                <label>自适应阈值偏移: <span id="val-c">-1</span></label>
-                <input type="range" id="param-c" min="-10" max="0" step="1" value="-1"
+                <label>Adaptive Threshold Offset: <span id="val-c">-2</span></label>
+                <input type="range" id="param-c" min="-10" max="0" step="1" value="-2"
                        oninput="document.getElementById('val-c').textContent=this.value">
-                <small>负值越小越灵敏，推荐 -5 ~ -1</small>
+                <small>More negative = more sensitive, recommended -5 ~ -1</small>
             </div>
 
             <div class="param-group">
-                <label>最小线长: <span id="val-min_line_length">15</span></label>
+                <label>Min Line Length: <span id="val-min_line_length">15</span></label>
                 <input type="range" id="param-min_line_length" min="5" max="50" step="1" value="15"
                        oninput="document.getElementById('val-min_line_length').textContent=this.value">
-                <small>检测更短的流星，推荐 10-30</small>
+                <small>Detect shorter meteors, recommended 10-30</small>
             </div>
 
             <div class="param-group">
-                <label>最小面积: <span id="val-min_area">5</span></label>
+                <label>Min Area: <span id="val-min_area">5</span></label>
                 <input type="range" id="param-min_area" min="1" max="30" step="1" value="5"
                        oninput="document.getElementById('val-min_area').textContent=this.value">
-                <small>过滤噪点，推荐 3-10</small>
+                <small>Filter noise, recommended 3-10</small>
             </div>
 
             <div class="param-group">
-                <label>最小长宽比: <span id="val-min_aspect">2.0</span></label>
+                <label>Min Aspect Ratio: <span id="val-min_aspect">2.0</span></label>
                 <input type="range" id="param-min_aspect" min="1.0" max="5.0" step="0.1" value="2.0"
                        oninput="document.getElementById('val-min_aspect').textContent=this.value">
-                <small>过滤点状噪点，推荐 1.5-3.0</small>
+                <small>Filter point noise, recommended 1.5-3.0</small>
             </div>
 
             <div class="param-group">
-                <label>高斯模糊核: <span id="val-blur">5</span></label>
+                <label>Gaussian Blur Kernel: <span id="val-blur">5</span></label>
                 <input type="range" id="param-blur" min="3" max="11" step="1" value="5"
                        oninput="document.getElementById('val-blur').textContent=this.value">
-                <small>降噪，推荐 3-7</small>
+                <small>Denoise, recommended 3-7</small>
             </div>
 
             <div class="param-group">
-                <label>闭运算核: <span id="val-close">3</span></label>
+                <label>Closing Kernel: <span id="val-close">3</span></label>
                 <input type="range" id="param-close" min="1" max="9" step="1" value="3"
                        oninput="document.getElementById('val-close').textContent=this.value">
-                <small>连接断裂轨迹，推荐 3-5</small>
+                <small>Connect broken trails, recommended 3-5</small>
             </div>
 
             <div class="param-group">
-                <label>开运算核: <span id="val-morph">1</span></label>
+                <label>Opening Kernel: <span id="val-morph">1</span></label>
                 <input type="range" id="param-morph" min="1" max="7" step="1" value="1"
                        oninput="document.getElementById('val-morph').textContent=this.value">
-                <small>去噪，推荐 1-3</small>
+                <small>Denoise, recommended 1-3</small>
             </div>
         </div>
 
         <div style="margin-top: 1.5rem;">
-            <button class="btn btn-primary" onclick="runDetection()" style="width:100%;">🔍 开始检测</button>
+            <button class="btn btn-primary" onclick="runDetection()" style="width:100%;">🔍 Start Detection</button>
         </div>
 
         <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-            <button class="btn btn-secondary" onclick="resetParams()" style="flex:1;">重置</button>
-            <button class="btn btn-secondary" onclick="loadPreset('default')" style="flex:1;">默认</button>
-            <button class="btn btn-secondary" onclick="loadPreset('sensitive')" style="flex:1;">高灵敏</button>
+            <button class="btn btn-secondary" onclick="resetParams()" style="flex:1;">Reset</button>
+            <button class="btn btn-secondary" onclick="loadPreset('default')" style="flex:1;">Default</button>
+            <button class="btn btn-secondary" onclick="loadPreset('sensitive')" style="flex:1;">Sensitive</button>
         </div>
     </div>
 
-    <!-- 右侧：图片和结果 -->
+    <!-- Right: Image and results -->
     <div>
         <div class="card">
-            <h2>📷 选择图片</h2>
+            <h2>📷 Select Image</h2>
             <div style="margin-top: 1rem;">
                 <select id="imageSelect" onchange="loadImagePreview()" style="width:100%; padding:0.5rem; background:#1a1a3a; border:1px solid #2a2a4a; border-radius:6px; color:#e0e0e0;">
-                    <option value="">-- 选择图片 --</option>
+                    <option value="">-- Select Image --</option>
                 </select>
                 <div style="margin-top:0.5rem; font-size:0.85rem; color:#888;">
-                    或上传新图片：
+                    Or upload a new image:
                     <input type="file" id="imageUpload" accept="image/*" onchange="uploadImage()" style="margin-top:0.25rem;">
                 </div>
             </div>
         </div>
 
         <div class="card" style="margin-top:1rem;">
-            <h2>🖼️ 检测结果 <span id="resultCount" style="font-size:0.9rem; color:#888;"></span></h2>
+            <h2>🖼️ Detection Results <span id="resultCount" style="font-size:0.9rem; color:#888;"></span></h2>
             <div id="resultArea" style="margin-top:1rem; text-align:center; min-height:200px; display:flex; align-items:center; justify-content:center; border:2px dashed #2a2a4a; border-radius:8px;">
-                <p style="color:#666;">选择图片后点击"开始检测"</p>
+                <p style="color:#666;">Select an image and click "Start Detection"</p>
             </div>
         </div>
 
         <div class="card" style="margin-top:1rem;">
-            <h2>📊 检测统计</h2>
+            <h2>📊 Statistics</h2>
             <div id="statsArea" style="margin-top:0.5rem; font-size:0.9rem; color:#aaa;">
-                <p>等待检测...</p>
+                <p>Waiting for detection...</p>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// 加载图片列表
+// Load image list
 fetch('/api/images/')
     .then(r => r.json())
     .then(data => {
@@ -117,29 +117,13 @@ fetch('/api/images/')
             opt.textContent = img.name;
             select.appendChild(opt);
         });
-        // 恢复上次选中的图片
-        const saved = localStorage.getItem('tune_selected_image');
-        if (saved) {
-            select.value = saved;
-            loadImagePreview();
-        }
     });
-
-// 将绝对路径转换为 URL 路径
-function toUrlPath(absPath) {
-    const idx = absPath.indexOf('storage/');
-    return idx >= 0 ? absPath.substring(idx) : absPath;
-}
 
 function loadImagePreview() {
     const path = document.getElementById('imageSelect').value;
     if (!path) return;
-    const urlPath = toUrlPath(path);
     const area = document.getElementById('resultArea');
-    area.innerHTML = `<img src="/${urlPath}" style="max-width:100%; border-radius:6px;" alt="预览"
-        onerror="this.parentElement.innerHTML='<p style=\\'color:#ff6b66;\\'>❌ 图片加载失败</p>'">`;
-    // 保存到 localStorage
-    localStorage.setItem('tune_selected_image', path);
+    area.innerHTML = `<img src="/${path}" style="max-width:100%; border-radius:6px;" alt="Preview">`;
 }
 
 function uploadImage() {
@@ -158,11 +142,10 @@ function uploadImage() {
             select.value = data.path;
             loadImagePreview();
         })
-        .catch(err => alert('上传失败: ' + err));
+        .catch(err => alert('Upload failed: ' + err));
 }
 
 function getParams() {
-    // block_size 必须是奇数
     let blockSize = parseInt(document.getElementById('param-block_size').value);
     if (blockSize % 2 === 0) blockSize += 1;
 
@@ -180,11 +163,11 @@ function getParams() {
 
 function runDetection() {
     const path = document.getElementById('imageSelect').value;
-    if (!path) { alert('请先选择图片'); return; }
+    if (!path) { alert('Please select an image'); return; }
 
     const params = getParams();
     const area = document.getElementById('resultArea');
-    area.innerHTML = '<p style="color:#888;">检测中...</p>';
+    area.innerHTML = '<p style="color:#888;">Detecting...</p>';
 
     fetch('/api/detect/', {
         method: 'POST',
@@ -197,30 +180,28 @@ function runDetection() {
             area.innerHTML = `<p style="color:#ff6b66;">❌ ${data.error}</p>`;
             return;
         }
-        // 显示结果图（添加时间戳防止缓存）
         if (data.result_image) {
-            const resultUrl = toUrlPath(data.result_image);
             const timestamp = Date.now();
-            area.innerHTML = `<img src="/${resultUrl}?t=${timestamp}" style="max-width:100%; border-radius:6px;" alt="检测结果">`;
+            const resultUrl = data.result_image.startsWith('/') ? data.result_image : '/' + data.result_image;
+            area.innerHTML = `<img src="${resultUrl}?t=${timestamp}" style="max-width:100%; border-radius:6px;" alt="Detection result">`;
         }
-        document.getElementById('resultCount').textContent = `(${data.detections} 个检测)`;
+        document.getElementById('resultCount').textContent = `(${data.detections} detections)`;
 
-        // 显示统计
         const stats = document.getElementById('statsArea');
         stats.innerHTML = `
-            <p>检测数: <strong>${data.detections}</strong></p>
-            <p>耗时: <strong>${data.time.toFixed(2)}s</strong></p>
-            <p>参数: block_size=${params.block_size}, c=${params.c}, min_len=${params.min_line_length}, min_area=${params.min_area}, aspect=${params.min_aspect}</p>
+            <p>Detections: <strong>${data.detections}</strong></p>
+            <p>Time: <strong>${data.time.toFixed(2)}s</strong></p>
+            <p>Params: block_size=${params.block_size}, c=${params.c}, min_len=${params.min_line_length}, min_area=${params.min_area}, aspect=${params.min_aspect}</p>
         `;
     })
     .catch(err => {
-        area.innerHTML = `<p style="color:#ff6b66;">❌ 请求失败: ${err}</p>`;
+        area.innerHTML = `<p style="color:#ff6b66;">❌ Request failed: ${err}</p>`;
     });
 }
 
 function resetParams() {
     document.getElementById('param-block_size').value = 21;
-    document.getElementById('param-c').value = -1;
+    document.getElementById('param-c').value = -2;
     document.getElementById('param-min_line_length').value = 15;
     document.getElementById('param-min_area').value = 5;
     document.getElementById('param-min_aspect').value = 2.0;
@@ -232,9 +213,9 @@ function resetParams() {
 
 function loadPreset(name) {
     const presets = {
-        default: { block_size: 21, c: -1, min_line_length: 15, min_area: 5, min_aspect: 2.0, blur: 5, close: 3, morph: 1 },
+        default: { block_size: 21, c: -2, min_line_length: 15, min_area: 5, min_aspect: 2.0, blur: 5, close: 3, morph: 1 },
         sensitive: { block_size: 15, c: -1, min_line_length: 10, min_area: 3, min_aspect: 1.5, blur: 3, close: 3, morph: 1 },
-        strict: { block_size: 31, c: -5, min_line_length: 25, min_area: 10, min_aspect: 3.0, blur: 7, morph: 5 },
+        strict: { block_size: 31, c: -5, min_line_length: 25, min_area: 10, min_aspect: 3.0, blur: 7, close: 5, morph: 3 },
     };
     const p = presets[name];
     if (!p) return;
@@ -244,6 +225,7 @@ function loadPreset(name) {
     document.getElementById('param-min_area').value = p.min_area;
     document.getElementById('param-min_aspect').value = p.min_aspect;
     document.getElementById('param-blur').value = p.blur;
+    document.getElementById('param-close').value = p.close;
     document.getElementById('param-morph').value = p.morph;
     updateLabels();
 }
@@ -259,7 +241,6 @@ function updateLabels() {
     document.getElementById('val-morph').textContent = document.getElementById('param-morph').value;
 }
 
-// 初始化标签
 updateLabels();
 </script>
 

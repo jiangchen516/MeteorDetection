@@ -1,57 +1,57 @@
 {% extends "base.html" %}
-{% block title %}任务详情 — 流星探测{% endblock %}
+{% block title %}Task Detail — Meteor Detection{% endblock %}
 {% block content %}
 <div class="card">
-    <h2>📋 任务详情 — {{ task.id[:8] if task else 'N/A' }}...</h2>
+    <h2>📋 Task Detail — {{ task.id[:8] if task else 'N/A' }}...</h2>
     {% if task %}
     <div class="grid-2">
         <div>
-            <p><strong>类型:</strong> {{ task.task_type }}</p>
-            <p><strong>状态:</strong> <span class="badge badge-{{ task.status|lower }}">{{ task.status }}</span></p>
-            <p><strong>创建时间:</strong> {{ task.created_at or '-' }}</p>
+            <p><strong>Type:</strong> {{ task.task_type }}</p>
+            <p><strong>Status:</strong> <span class="badge badge-{{ task.status|lower }}">{{ task.status }}</span></p>
+            <p><strong>Created:</strong> {{ task.created_at[:16].replace('T', ' ') if task.created_at else '-' }}</p>
         </div>
         <div>
-            <p><strong>进度:</strong> {{ "%.0f"|format((task.progress or 0) * 100) }}%</p>
+            <p><strong>Progress:</strong> {{ "%.0f"|format((task.progress or 0) * 100) }}%</p>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {{ (task.progress or 0) * 100 }}%"></div>
             </div>
-            <p><strong>消息:</strong> {{ task.message or '-' }}</p>
+            <p><strong>Message:</strong> {{ task.message or '-' }}</p>
         </div>
     </div>
 
     {% if task.status == 'RUNNING' %}
     <div style="margin-top: 1rem;">
-        <button class="btn btn-danger" hx-post="/api/tasks/{{ task.id }}/cancel" hx-swap="none">取消任务</button>
+        <button class="btn btn-danger" hx-post="/api/tasks/{{ task.id }}/cancel" hx-swap="none">Cancel Task</button>
     </div>
     {% elif task.status == 'SUCCESS' or task.status == 'FAILED' %}
     <div style="margin-top: 1rem;">
-        <a href="/tune/{{ task.id }}" class="btn btn-primary">⚙️ 调整参数</a>
+        <a href="/tune/{{ task.id }}" class="btn btn-primary">⚙️ Tune Parameters</a>
     </div>
     {% endif %}
     {% else %}
-    <p class="empty">任务不存在</p>
+    <p class="empty">Task not found</p>
     {% endif %}
 </div>
 
-<!-- 单张结果图（兼容旧任务） -->
+<!-- Single result image (legacy tasks) -->
 {% if task and task.result_image and not task.result_images %}
 <div class="card">
-    <h2>🖼️ 检测结果图</h2>
-    <img src="/api/tasks/{{ task.id }}/image" alt="检测结果标注图"
+    <h2>🖼️ Detection Result</h2>
+    <img src="/api/tasks/{{ task.id }}/image" alt="Detection result"
          style="max-width: 100%; border-radius: 8px; border: 1px solid #2a2a4a;">
 </div>
 {% endif %}
 
-<!-- 批量结果图：缩略图列表 -->
+<!-- Batch result images: thumbnail gallery -->
 {% if task and task.result_images %}
 <div class="card">
-    <h2>🖼️ 检测结果图 ({{ task.result_images|length }} 张)</h2>
+    <h2>🖼️ Detection Results ({{ task.result_images|length }} images)</h2>
     <div id="imageGallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
         {% for img_path in task.result_images %}
         <div class="gallery-item" onclick="openLightbox({{ loop.index0 }})"
              style="cursor: pointer; border: 2px solid #2a2a4a; border-radius: 8px; overflow: hidden; transition: border-color 0.2s;">
             <img src="/api/tasks/{{ task.id }}/images/{{ loop.index0 }}"
-                 alt="检测结果 {{ loop.index }}"
+                 alt="Detection {{ loop.index }}"
                  loading="lazy"
                  style="width: 100%; height: 150px; object-fit: cover; display: block;">
             <div style="padding: 0.5rem; text-align: center; font-size: 0.8rem; color: #888;">
@@ -63,7 +63,7 @@
 </div>
 {% endif %}
 
-<!-- Lightbox 弹窗 -->
+<!-- Lightbox -->
 <div id="lightbox" onclick="closeLightbox()"
      style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center;
@@ -71,26 +71,26 @@
     <div style="position: absolute; top: 20px; right: 30px; color: #fff; font-size: 2rem; cursor: pointer;"
          onclick="closeLightbox()">&times;</div>
     <div style="position: absolute; top: 20px; left: 30px; color: #aaa; font-size: 0.9rem;" id="lightboxInfo"></div>
-    <img id="lightboxImg" src="" alt="大图"
+    <img id="lightboxImg" src="" alt="Full size"
          style="max-width: 90vw; max-height: 85vh; object-fit: contain; border-radius: 4px;"
          onclick="event.stopPropagation()">
     <div style="margin-top: 1rem; display: flex; gap: 1rem;">
-        <button class="btn btn-primary" onclick="event.stopPropagation(); navigateLightbox(-1)">◀ 上一张</button>
-        <button class="btn btn-primary" onclick="event.stopPropagation(); navigateLightbox(1)">下一张 ▶</button>
+        <button class="btn btn-primary" onclick="event.stopPropagation(); navigateLightbox(-1)">◀ Previous</button>
+        <button class="btn btn-primary" onclick="event.stopPropagation(); navigateLightbox(1)">Next ▶</button>
     </div>
 </div>
 
 {% if detections %}
 <div class="card">
-    <h2>☄️ 检测结果 ({{ detections|length }})</h2>
+    <h2>☄️ Detections ({{ detections|length }})</h2>
     <table>
         <thead>
             <tr>
                 <th>#</th>
-                <th>坐标</th>
-                <th>亮度</th>
-                <th>置信度</th>
-                <th>评分</th>
+                <th>Coordinates</th>
+                <th>Brightness</th>
+                <th>Confidence</th>
+                <th>Score</th>
             </tr>
         </thead>
         <tbody>
@@ -106,14 +106,14 @@
         </tbody>
     </table>
     {% if detections|length > 50 %}
-    <p style="margin-top: 0.5rem; color: #666;">显示前 50 条，共 {{ detections|length }} 条</p>
+    <p style="margin-top: 0.5rem; color: #666;">Showing first 50 of {{ detections|length }} detections</p>
     {% endif %}
 </div>
 {% endif %}
 
 {% if logs %}
 <div class="card">
-    <h2>📝 日志</h2>
+    <h2>📝 Logs</h2>
     <div class="log-viewer">
         {% for log in logs[:100] %}
         <div class="log-line">{{ log }}</div>
@@ -152,7 +152,7 @@ function updateLightbox() {
     document.getElementById('lightboxInfo').textContent = `${currentImageIndex + 1} / ${totalImages}`;
 }
 
-// 键盘导航
+// Keyboard navigation
 document.addEventListener('keydown', (e) => {
     const lb = document.getElementById('lightbox');
     if (lb.style.display === 'flex') {
@@ -162,17 +162,11 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// 运行中任务自动刷新
+// Auto-refresh running tasks
 {% if task and task.status == 'RUNNING' %}
 setInterval(() => {
     window.location.reload();
 }, 5000);
 {% endif %}
 </script>
-
-<style>
-.gallery-item:hover {
-    border-color: #6080ff !important;
-}
-</style>
 {% endblock %}
