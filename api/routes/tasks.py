@@ -201,20 +201,23 @@ async def save_result(task_id: str, req: dict):
         raise HTTPException(404, "Task not found")
 
     # 获取原始图片路径
-    image_path = task.get("params", "{}")
-    try:
-        image_params = json.loads(image_path)
-        img_path = image_params.get("image_path", "")
-    except:
-        img_path = ""
-
-    # 将绝对路径转换为 URL 路径
-    if img_path and "storage/" in img_path:
-        idx = img_path.index("storage/")
-        img_path = img_path[idx:]
+    # 优先使用请求中传入的 image_path（调参页面选择的具体图片）
+    img_path = req.get("image_path", "")
 
     if not img_path:
-        raise HTTPException(400, "No image path found in task params")
+        # 从 task params 中获取
+        try:
+            task_params = json.loads(task.get("params", "{}"))
+            img_path = task_params.get("image_path", "")
+        except:
+            pass
+
+    # 将绝对路径转换为文件路径
+    if img_path.startswith('/'):
+        img_path = img_path[1:]
+
+    if not img_path:
+        raise HTTPException(400, "No image path found")
 
     # 运行检测
     import time

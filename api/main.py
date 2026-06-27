@@ -84,37 +84,59 @@ async def tune_task_page(request: Request, task_id: str):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/dashboard")
 
-    # 优先使用结果图，如果没有则使用原始图片
-    image_path = ""
-    if task.get("result_image"):
-        image_path = task["result_image"]
-    elif task.get("result_images"):
-        images = json.loads(task["result_images"]) if isinstance(task["result_images"], str) else task["result_images"]
-        if images:
-            image_path = images[0]
+    # 获取结果图片列表
+    result_images = []
+    if task.get("result_images"):
+        result_images = json.loads(task["result_images"]) if isinstance(task["result_images"], str) else task["result_images"]
+    elif task.get("result_image"):
+        result_images = [task["result_image"]]
 
-    # 如果没有结果图，从 params 中获取原始图片
-    if not image_path:
-        try:
-            params = json.loads(task.get("params", "{}"))
-            image_path = params.get("image_path", "")
-        except:
-            pass
+    # 获取原始图片路径
+    try:
+        params = json.loads(task.get("params", "{}"))
+        image_dir = params.get("image_dir", "")
+    except:
+        params = {}
+        image_dir = ""
+
+    # 优先使用第一个结果图，否则使用原始图片目录中的第一张
+    image_path = ""
+    if result_images:
+        image_path = result_images[0]
+    elif image_dir:
+        # 从原始目录获取第一张图片
+        from pathlib import Path
+        img_dir = Path(image_dir)
+        if img_dir.exists():
+            for f in sorted(img_dir.iterdir()):
+                if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.bmp'):
+                    image_path = str(f)
+                    break
 
     # 将绝对路径转换为 URL 路径
-    if image_path and "storage/" in image_path:
-        idx = image_path.index("storage/")
-        image_path = "/" + image_path[idx:]
+    def to_url_path(path):
+        if path and "storage/" in path:
+            idx = path.index("storage/")
+            return "/" + path[idx:]
+        return path
+
+    image_path = to_url_path(image_path)
+    result_images_urls = [to_url_path(p) for p in result_images]
+
+    # 获取原始图片路径（用于调参时重新检测）
+    original_images_urls = []
+    if image_dir:
+        from pathlib import Path
+        img_dir = Path(image_dir)
+        if img_dir.exists():
+            for f in sorted(img_dir.iterdir()):
+                if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.bmp'):
+                    original_images_urls.append(to_url_path(str(f)))
 
     # 获取保存的检测参数
     detection_params = {}
-    try:
-        params = json.loads(task.get("params", "{}"))
-        # 如果是旧任务（只有 image_path），则不传参数，使用默认值
-        if "block_size" in params:
-            detection_params = params
-    except:
-        pass
+    if "block_size" in params:
+        detection_params = params
 
     from datetime import datetime
     now = int(datetime.utcnow().timestamp())
@@ -122,6 +144,9 @@ async def tune_task_page(request: Request, task_id: str):
     return templates.TemplateResponse(request, "tune_task.html", {
         "task": task,
         "image_path": image_path,
+        "result_images": result_images_urls,
+        "original_images": original_images_urls,
+        "image_dir": image_dir,
         "detection_params": detection_params,
         "now": now,
     })

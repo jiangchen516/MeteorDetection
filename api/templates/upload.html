@@ -19,6 +19,12 @@
                 <input type="file" name="background" accept="image/*"
                        style="background: #1a1a3a; border: 1px solid #2a2a4a; padding: 0.5rem; border-radius: 6px; color: #e0e0e0;">
             </div>
+            <div style="margin-top: 1rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; color: #a0b0ff; cursor: pointer;">
+                    <input type="checkbox" id="enableRectify" checked>
+                    <span>Enable fisheye correction</span>
+                </label>
+            </div>
             <div style="margin-top: 1rem; display: flex; gap: 1rem;">
                 <button type="button" class="btn btn-primary" onclick="submitSingle()">Single Detection</button>
                 <button type="button" class="btn btn-primary" onclick="submitBatch()">Batch Detection</button>
@@ -74,10 +80,11 @@ function submitSingle() {
         .then(data => {
             const params = {image_path: data.path};
             if (data.background) params.background_path = data.background;
+            const enableRectify = document.getElementById('enableRectify').checked;
             return fetch('/api/tasks/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({task_type: 'single', params})
+                body: JSON.stringify({task_type: 'single', params, enable_rectify: enableRectify})
             });
         })
         .then(r => {
@@ -112,10 +119,11 @@ function submitBatch() {
         .then(data => {
             if (!data.paths || data.paths.length === 0) throw new Error('No upload paths received');
             const image_dir = data.paths[0].substring(0, data.paths[0].lastIndexOf('/'));
+            const enableRectify = document.getElementById('enableRectify').checked;
             return fetch('/api/tasks/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({task_type: 'batch', params: {image_dir}})
+                body: JSON.stringify({task_type: 'batch', params: {image_dir}, enable_rectify: enableRectify})
             });
         })
         .then(r => {
