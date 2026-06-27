@@ -132,6 +132,24 @@ async def tune_task_page(request: Request, task_id: str):
             for f in sorted(img_dir.iterdir()):
                 if f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.bmp'):
                     original_images_urls.append(to_url_path(str(f)))
+    elif result_images:
+        # 从结果图片推断原始图片路径
+        # 结果图片路径格式: storage/results/task_id/original_name/original_name_detected.jpg
+        # 原始图片路径: storage/uploads/original_name.jpg
+        for result_img in result_images:
+            # 从结果图片路径中提取原始文件名
+            parts = result_img.split('/')
+            if len(parts) >= 3:
+                # 找到原始文件名（去掉 _detected.jpg 后缀）
+                filename = parts[-1]
+                if '_detected' in filename:
+                    original_name = filename.split('_detected')[0]
+                else:
+                    original_name = filename.rsplit('.', 1)[0]
+                # 推断原始图片路径
+                original_path = f"/storage/uploads/{original_name}.jpg"
+                if original_path not in original_images_urls:
+                    original_images_urls.append(original_path)
 
     # 获取保存的检测参数
     detection_params = {}
