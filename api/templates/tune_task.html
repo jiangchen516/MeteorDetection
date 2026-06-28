@@ -134,10 +134,10 @@ function changeImage() {
     if (select && select.value) {
         // Use original image path for detection (not the result image)
         imagePath = select.value;
-        // Update the image preview
+        // Always update the image preview
         const area = document.getElementById('resultArea');
-        if (area && !area.querySelector('img[alt="Detection result"]')) {
-            area.innerHTML = `<img src="${imagePath}?t={{ now }}" style="max-width:100%; border-radius:6px;" alt="Current result"
+        if (area) {
+            area.innerHTML = `<img src="${imagePath}?t={{ now }}" style="max-width:100%; border-radius:6px;" alt="Current image"
                 onerror="this.parentElement.innerHTML='<p style=\'color:#666;\'>Image load failed</p>'">`;
         }
     }
