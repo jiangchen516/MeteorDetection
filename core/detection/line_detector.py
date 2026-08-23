@@ -109,6 +109,8 @@ class LineDetector:
         """
         gray = _to_gray(image)
         h, w = gray.shape[:2]
+        image_mean = float(gray.mean())
+        image_std = max(float(gray.std()), 1.0)
 
         # 阈值分割 — 直接在原图上检测明亮的细长区域
         blur_ksize = self.blur_kernel_size
@@ -203,18 +205,56 @@ class LineDetector:
             if dist_to_edge < 5:
                 continue
 
+            quality = _quality_score(
+                length, mean_bright, aspect,
+                image_mean, image_std,
+                self.length_weight, self.brightness_weight, self.aspect_ratio_weight,
+            )
             candidates.append(DetectionResult(
                 x1=x1, y1=y1, x2=x2, y2=y2,
                 brightness=mean_bright,
-                score=min(length / 100.0, 1.0),
+                score=quality,
                 confidence=min(aspect / 10.0, 1.0),
                 width=width,
                 continuity=area / max(bw * bh, 1),
                 box_points=box_pts,
             ))
 
-        logger.info(f"Detected {len(candidates)} candidate meteor lines")
+        if self.score_threshold > 0:
+            candidates = [
+                c for c in candidates if c.score >= self.score_threshold
+            ]
+        logger.info(
+            f"Detected {len(candidates)} candidate meteor lines"
+            f" (threshold={self.score_threshold})"
+        )
         return candidates
+
+
+def _quality_score(
+    length: float,
+    brightness: float,
+    aspect: float,
+    image_mean: float,
+    image_std: float,
+    length_weight: float = 0.3,
+    brightness_weight: float = 0.4,
+    aspect_ratio_weight: float = 0.3,
+) -> float:
+    """综合评分：长度 + 亮度显著性 + 长宽比的加权和（0~1）.
+
+    长度越长越高；亮度越显著于背景越高；越狭长越高。
+    对应 config meteor_detection.score_weights。
+    """
+    length_score = min(length / 100.0, 1.0)
+    bright_sig = (brightness - image_mean) / max(image_std, 1.0)
+    brightness_score = min(max(bright_sig / 3.0, 0.0), 1.0)
+    aspect_score = min(aspect / 10.0, 1.0)
+    return (
+        length_weight * length_score
+        + brightness_weight * brightness_score
+        + aspect_ratio_weight * aspect_score
+    )
 
 
 def _to_gray(image: np.ndarray) -> np.ndarray:

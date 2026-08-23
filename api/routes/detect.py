@@ -58,11 +58,16 @@ async def detect_with_params(req: dict):
 
     try:
         from core.detection.line_detector import LineDetector
+        from core.utils.config import get_section
         from core.utils.image_io import auto_load, save_image
         from core.utils.visualization import draw_detections
 
         # 构建与主检测链路完全一致的检测器，仅覆盖前端传入的参数
         detector = LineDetector(_config_loaded=True)
+        # 评分阈值从配置读取，保证调参结果与 worker 主链路一致
+        detector.score_threshold = float(
+            get_section("meteor_detection").get(
+                "score_threshold", detector.score_threshold))
         detector.adaptive_block_size = int(
             params.get("block_size", detector.adaptive_block_size))
         detector.adaptive_c = float(params.get("c", detector.adaptive_c))

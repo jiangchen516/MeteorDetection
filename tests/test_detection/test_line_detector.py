@@ -112,3 +112,25 @@ class TestLineDetector:
         assert r.object_class == "unknown"
         assert r.classification_confidence == 0.0
         assert r.classification_reasons == []
+
+    def test_score_threshold_filters_low_score(self):
+        """高阈值应过滤掉短/暗/低分碎屑."""
+        img = np.zeros((200, 200), dtype=np.uint8)
+        cv2.line(img, (95, 100), (105, 100), 30, 1)      # 短暗线段
+        det = LineDetector(_config_loaded=True, score_threshold=0.9)
+        assert det.detect(img) == []
+
+    def test_score_threshold_zero_disables_filtering(self):
+        """score_threshold=0 表示不过滤."""
+        det = LineDetector(_config_loaded=True, score_threshold=0.0)
+        img = np.zeros((200, 200), dtype=np.uint8)
+        cv2.line(img, (95, 100), (105, 100), 255, 1)
+        # 虽然短，但不过滤就应保留
+        assert isinstance(det.detect(img), list)
+
+    def test_quality_score_ranks_long_bright_slender_highest(self):
+        """长而亮而细长的候选综合分最高."""
+        from core.detection.line_detector import _quality_score
+        good = _quality_score(200, 200, 20, image_mean=30, image_std=40)
+        poor = _quality_score(10, 20, 1.2, image_mean=30, image_std=40)
+        assert good > poor

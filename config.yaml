@@ -31,8 +31,10 @@ meteor_detection:
   max_line_gap: 10
   min_brightness: 60
   min_aspect_ratio: 5
-  # 评分阈值（0-1），综合评分超过此值才认为是候选流星
-  score_threshold: 0.2
+  # 评分阈值（0-1），综合评分（长度+亮度+长宽比的加权和，见 score_weights）
+  # 超过此值才保留为候选流星。0 表示不按评分过滤。
+  # 默认 0.4：可大幅减少亮星/噪点碎片误报，同时保留长/亮/细长的真流星。
+  score_threshold: 0.4
   # 各评分项权重
   score_weights:
     length: 0.3
