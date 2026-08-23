@@ -87,6 +87,7 @@
         <thead>
             <tr>
                 <th>#</th>
+                <th>Type</th>
                 <th>Coordinates</th>
                 <th>Brightness</th>
                 <th>Confidence</th>
@@ -97,6 +98,12 @@
             {% for d in detections[:50] %}
             <tr>
                 <td>{{ loop.index }}</td>
+                <td>
+                    {% set cls = d.class or 'unknown' %}
+                    <span class="badge badge-{{ 'success' if cls == 'meteor' else ('running' if cls == 'satellite' else ('pending' if cls == 'airplane' else ('failed' if cls == 'noise' else 'cancelled'))) }}">
+                        {{ cls }}{% if d.class_confidence and d.class_confidence > 0 %} {{ "%.0f"|format(d.class_confidence * 100) }}%{% endif %}
+                    </span>
+                </td>
                 <td>({{ d.x1 }},{{ d.y1 }}) → ({{ d.x2 }},{{ d.y2 }})</td>
                 <td>{{ "%.0f"|format(d.brightness) }}</td>
                 <td>{{ "%.2f"|format(d.confidence) }}</td>

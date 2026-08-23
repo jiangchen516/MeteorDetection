@@ -160,9 +160,10 @@ def list_tasks(limit: int = 50, offset: int = 0) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def add_detection(task_id: str, det: dict) -> None:
+def add_detection(task_id: str, det: dict) -> int:
+    """插入一条检测，返回其自增 id；若带分类信息则一并写入 classifications 表."""
     conn = get_connection()
-    conn.execute(
+    cur = conn.execute(
         """
         INSERT INTO detections (task_id, image, x1, y1, x2, y2, brightness, confidence, score)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -170,14 +171,41 @@ def add_detection(task_id: str, det: dict) -> None:
         (task_id, det.get("image", ""), det["x1"], det["y1"], det["x2"], det["y2"],
          det.get("brightness", 0), det.get("confidence", 0), det.get("score", 0)),
     )
+    detection_id = cur.lastrowid
     conn.commit()
+
+    object_class = det.get("object_class")
+    if object_class:
+        reasons = det.get("classification_reasons", [])
+        conn.execute(
+            """
+            INSERT INTO classifications (detection_id, task_id, object_class, confidence, reasons)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (detection_id, task_id, str(object_class),
+             det.get("classification_confidence", 0.0),
+             json.dumps(reasons) if not isinstance(reasons, str) else reasons),
+        )
+        conn.commit()
+
     conn.close()
+    return detection_id
 
 
 def get_detections(task_id: str) -> list[dict]:
     conn = get_connection()
     rows = conn.execute(
-        "SELECT * FROM detections WHERE task_id = ?", (task_id,)
+        """
+        SELECT d.*,
+               c.object_class AS class,
+               c.confidence   AS class_confidence,
+               c.reasons      AS class_reasons
+        FROM detections d
+        LEFT JOIN classifications c ON c.detection_id = d.id
+        WHERE d.task_id = ?
+        ORDER BY d.id ASC
+        """,
+        (task_id,),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]

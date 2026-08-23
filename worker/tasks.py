@@ -88,6 +88,7 @@ def process_batch(self, image_dir: str, background_path: str | None = None,
         from core.pipeline import MeteorPipeline
         from core.utils.config import get_path
         from core.utils.image_io import auto_load
+        from api.models.database import add_classification
 
         if output_dir is None:
             output_dir = str(get_path("storage_dir") / "results" / task_id)
@@ -106,6 +107,20 @@ def process_batch(self, image_dir: str, background_path: str | None = None,
 
         for r in results:
             _add_detection(task_id, r)
+
+        # 落库轨迹级分类（与单帧检测分类不同粒度，关联到任务级）
+        for meteor in pipeline.tracker.confirmed_meteors:
+            obj_class = meteor.get("classification")
+            if obj_class:
+                reason_list = meteor.get("classification_reasons", [])
+                add_classification(
+                    task_id,
+                    object_class=obj_class,
+                    confidence=meteor.get("classification_confidence", 0.0),
+                    reasons=json.dumps(reason_list)
+                    if not isinstance(reason_list, str) else reason_list,
+                    detection_id=None,
+                )
 
         # 收集所有标注图路径（递归搜索）
         from pathlib import Path
