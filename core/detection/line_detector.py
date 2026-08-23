@@ -46,6 +46,10 @@ class DetectionResult:
     # 旋转矩形四个角点 (cv2.minAreaRect 的 boxPoints)，用于画方框
     # 每个点是 (x, y) 元组，共4个点
     box_points: list[tuple[int, int]] = field(default_factory=list)
+    # 单帧分类（run_single / 实时模式填充）
+    object_class: str = "unknown"
+    classification_confidence: float = 0.0
+    classification_reasons: list = field(default_factory=list)
 
 
 @dataclass
@@ -64,13 +68,16 @@ class LineDetector:
     merge_lines: bool = True
     _config_loaded: bool = field(default=False, repr=False)
 
-    adaptive_block_size: int = 21    # 自适应阈值块大小（更小更灵敏）
-    adaptive_c: float = -2.0         # 自适应阈值偏移
-    min_line_length: int = 15        # 最小线长（检测更短的流星）
-    morph_kernel_size: int = 1       # 形态学开运算核大小
-    close_kernel_size: int = 3       # 形态学闭运算核大小（连接断裂轨迹）
-    use_fixed_threshold: bool = False  # 使用自适应阈值
-    fixed_threshold: int = 15         # 固定阈值（0-255），更低更灵敏
+    adaptive_block_size: int = 21            # 自适应阈值块大小（更小更灵敏）
+    adaptive_c: float = -2.0                 # 自适应阈值偏移
+    min_line_length: int = 15                # 最小线长（检测更短的流星）
+    morph_kernel_size: int = 1               # 形态学开运算核大小
+    close_kernel_size: int = 3               # 形态学闭运算核大小（连接断裂轨迹）
+    blur_kernel_size: int = 5                # 高斯模糊核大小（去噪，强制奇数）
+    min_area: int = 5                        # 最小连通域面积（过滤噪点）
+    min_aspect: float = 2.0                  # 最小长宽比（过滤点状恒星）
+    use_fixed_threshold: bool = False        # 是否使用固定阈值
+    fixed_threshold: int = 15                # 固定阈值（0-255），更低更灵敏
 
     def __post_init__(self) -> None:
         if not self._config_loaded:
@@ -104,7 +111,10 @@ class LineDetector:
         h, w = gray.shape[:2]
 
         # 阈值分割 — 直接在原图上检测明亮的细长区域
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        blur_ksize = self.blur_kernel_size
+        if blur_ksize < 1 or blur_ksize % 2 == 0:
+            blur_ksize = 5   # OpenCV GaussianBlur 要求奇数 > 0
+        blur = cv2.GaussianBlur(gray, (blur_ksize, blur_ksize), 0)
         if self.use_fixed_threshold:
             _, binary = cv2.threshold(blur, self.fixed_threshold, 255, cv2.THRESH_BINARY)
         else:
@@ -141,12 +151,12 @@ class LineDetector:
             bh = stats[i, cv2.CC_STAT_HEIGHT]
 
             # 面积过滤（太小是噪点）
-            if area < 5:
+            if area < self.min_area:
                 continue
 
             # 长宽比过滤（流星是拉长的，但断裂的流星可能长宽比低）
             aspect = max(bw, bh) / max(min(bw, bh), 1)
-            if aspect < 2.0:
+            if aspect < self.min_aspect:
                 continue
 
             # 边缘过滤（排除距边缘<10px的检测）

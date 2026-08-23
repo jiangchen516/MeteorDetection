@@ -108,3 +108,21 @@ class TestClassifySingleDetection:
     def test_dim_short_line(self):
         result = classify_single_detection(brightness=10, score=0.1, line_length=20)
         assert result.object_class in (ObjectClass.NOISE, ObjectClass.UNKNOWN)
+
+    def test_bright_long_line_is_meteor(self):
+        """高亮、高分、细长、连续的线段应判为流星."""
+        result = classify_single_detection(
+            brightness=200, score=0.9, line_length=150,
+            width=3, continuity=0.5,
+            orig_mean=30, orig_std=40,
+        )
+        assert result.object_class == ObjectClass.METEOR
+        assert result.confidence > 0.3
+
+    def test_dim_tiny_line_is_noise(self):
+        """低亮、极短、低分的线段应判为噪点."""
+        result = classify_single_detection(
+            brightness=10, score=0.05, line_length=10,
+            orig_mean=30, orig_std=40,
+        )
+        assert result.object_class == ObjectClass.NOISE

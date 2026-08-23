@@ -18,6 +18,7 @@ from core.utils.visualization import draw_detections
 from core.classification.meteor_classifier import (
     extract_trajectory_features,
     classify_trajectory,
+    classify_single_detection,
 )
 
 logger = get_logger(__name__)
@@ -89,12 +90,36 @@ class MeteorPipeline:
             "block_size": self.detector.adaptive_block_size,
             "c": self.detector.adaptive_c,
             "min_line_length": self.detector.min_line_length,
-            "min_area": 5,  # 硬编码值，与 detect 方法一致
-            "min_aspect": 2.0,  # 硬编码值
-            "blur": 5,  # 硬编码值
+            "min_area": self.detector.min_area,
+            "min_aspect": self.detector.min_aspect,
+            "blur": self.detector.blur_kernel_size,
             "close": self.detector.close_kernel_size,
             "morph": self.detector.morph_kernel_size,
         }
+
+    def _classify_detections(self, image: np.ndarray, detections: list) -> None:
+        """对每个检测结果做单帧分类，填充 object_class / 置信度 / 原因."""
+        if not detections:
+            return
+        gray = image
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        orig_mean = float(gray.mean())
+        orig_std = max(float(gray.std()), 1.0)
+        for d in detections:
+            line_length = float(np.hypot(d.x2 - d.x1, d.y2 - d.y1))
+            result = classify_single_detection(
+                 brightness=d.brightness,
+                 score=d.score,
+                 line_length=line_length,
+                 width=getattr(d, "width", 0.0),
+                 continuity=getattr(d, "continuity", 0.0),
+                 orig_mean=orig_mean,
+                 orig_std=orig_std,
+              )
+            d.object_class = result.object_class.value
+            d.classification_confidence = result.confidence
+            d.classification_reasons = result.reasons
 
     def _report(self, message: str, fraction: float) -> None:
         logger.info(f"[{fraction:.0%}] {message}")
@@ -158,6 +183,7 @@ class MeteorPipeline:
         # 检测（直接在原图上连通域分析，不依赖背景差分）
         self._report("Detecting lines", 0.6)
         detections = self.detector.detect(image)
+        self._classify_detections(image, detections)
 
         # 输出
         self._report("Generating output", 0.9)
@@ -169,6 +195,8 @@ class MeteorPipeline:
                 "x1": d.x1, "y1": d.y1, "x2": d.x2, "y2": d.y2,
                 "brightness": d.brightness, "confidence": d.confidence,
                 "score": d.score, "merged_count": d.merged_count,
+                "object_class": d.object_class, "classification_confidence": d.classification_confidence,
+                "classification_reasons": d.classification_reasons,
             }
             for d in detections
         ]

@@ -1,10 +1,12 @@
-"""交互式参数调整 API."""
+"""交互式参数调整 API.
+
+复用检测引擎 LineDetector，保证调参页面与主检测链路使用同一段逻辑
+（单一逻辑来源，避免两处实现漂移）。
+"""
 
 import time
 from pathlib import Path
 
-import cv2
-import numpy as np
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
@@ -15,6 +17,7 @@ router = APIRouter()
 async def list_images():
     """列出可用的图片."""
     from core.utils.config import get_path
+
     upload_dir = get_path("storage_dir") / "uploads"
     images = []
     if upload_dir.exists():
@@ -29,151 +32,83 @@ async def list_images():
 
 @router.post("/")
 async def detect_with_params(req: dict):
-    """使用指定参数运行检测."""
+    """使用指定参数运行检测.
+
+    前端传入的参数会被注入到与 worker 同款的 LineDetector 实例上，
+    因此调参结果即为线上检测逻辑。
+    """
     image_path = req.get("image_path")
-    params = req.get("params", {})
+    params = req.get("params") or {}
 
     if not image_path:
         return JSONResponse({"error": "image_path required"}, status_code=400)
 
     # 将 URL 路径转换为绝对路径
-    if image_path.startswith('/'):
-        # 去掉开头的 /，然后相对于项目根目录
-        relative_path = image_path[1:]
+    if str(image_path).startswith('/'):
+        relative_path = str(image_path)[1:]
         path = Path(relative_path)
     else:
         path = Path(image_path)
 
     if not path.exists():
-        return JSONResponse({"error": f"Image not found: {image_path} (resolved: {path})"}, status_code=404)
+        return JSONResponse(
+            {"error": f"Image not found: {image_path} (resolved: {path})"},
+            status_code=404,
+        )
 
     try:
         from core.detection.line_detector import LineDetector
         from core.utils.image_io import auto_load, save_image
+        from core.utils.visualization import draw_detections
 
-        # 创建自定义检测器
+        # 构建与主检测链路完全一致的检测器，仅覆盖前端传入的参数
         detector = LineDetector(_config_loaded=True)
-        detector.adaptive_block_size = params.get("block_size", 21)
-        detector.adaptive_c = params.get("c", -1)
-        detector.min_line_length = params.get("min_line_length", 15)
-        detector.morph_kernel_size = params.get("morph", 3)
-        # 覆盖 detect 方法中的参数
-        detector._blur_kernel = params.get("blur", 5)
+        detector.adaptive_block_size = int(
+            params.get("block_size", detector.adaptive_block_size))
+        detector.adaptive_c = float(params.get("c", detector.adaptive_c))
+        detector.min_line_length = int(
+            params.get("min_line_length", detector.min_line_length))
+        detector.morph_kernel_size = int(
+            params.get("morph", detector.morph_kernel_size))
+        detector.close_kernel_size = int(
+            params.get("close", detector.close_kernel_size))
+        detector.blur_kernel_size = int(
+            params.get("blur", detector.blur_kernel_size))
+        detector.min_area = int(params.get("min_area", detector.min_area))
+        detector.min_aspect = float(
+            params.get("min_aspect", detector.min_aspect))
 
         # 加载图片
         image = auto_load(path)
         if image is None:
             return JSONResponse({"error": "Failed to load image"}, status_code=400)
 
-        # 运行检测
+        # 运行检测（单一逻辑来源）
         start_time = time.time()
-
-        # 使用自定义参数运行检测
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
-        blur_ksize = params.get("blur", 5)
-        blur = cv2.GaussianBlur(gray, (blur_ksize, blur_ksize), 0)
-        binary = cv2.adaptiveThreshold(
-            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            params.get("block_size", 21),
-            params.get("c", -1),
-        )
-
-        # 形态学闭运算（连接断裂的流星轨迹）
-        close_ksize = params.get("close", 3)
-        close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (close_ksize, close_ksize))
-        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, close_kernel)
-
-        # 形态学开运算（去噪）
-        morph_ksize = params.get("morph", 1)
-        open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_ksize, morph_ksize))
-        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, open_kernel)
-
-        # 连通域分析
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
-
-        detections = 0
-        h, w = gray.shape[:2]
-        for i in range(1, num_labels):
-            area = stats[i, cv2.CC_STAT_AREA]
-            bw = stats[i, cv2.CC_STAT_WIDTH]
-            bh = stats[i, cv2.CC_STAT_HEIGHT]
-            aspect = max(bw, bh) / max(min(bw, bh), 1)
-
-            if area < params.get("min_area", 5):
-                continue
-            if aspect < params.get("min_aspect", 2.0):
-                continue
-
-            # 边缘过滤（保留距边缘 10px 以上的检测）
-            x = stats[i, cv2.CC_STAT_LEFT]
-            y = stats[i, cv2.CC_STAT_TOP]
-            cx, cy = centroids[i]
-            dist_to_edge = min(cx, cy, w - cx, h - cy)
-            if dist_to_edge < 10:
-                continue
-
-            detections += 1
-
+        detections = detector.detect(image)
         elapsed = time.time() - start_time
-
-        # 生成标注图
-        from core.utils.visualization import draw_detections
-        from core.detection.line_detector import DetectionResult
-
-        # 收集检测结果用于绘图
-        det_results = []
-        for i in range(1, num_labels):
-            area = stats[i, cv2.CC_STAT_AREA]
-            bw = stats[i, cv2.CC_STAT_WIDTH]
-            bh = stats[i, cv2.CC_STAT_HEIGHT]
-            aspect = max(bw, bh) / max(min(bw, bh), 1)
-            if area < params.get("min_area", 5) or aspect < params.get("min_aspect", 2.0):
-                continue
-
-            component_mask = (labels == i).astype(np.uint8) * 255
-            contours, _ = cv2.findContours(component_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            if not contours:
-                continue
-
-            rect = cv2.minAreaRect(np.vstack(contours))
-            (cx, cy), (rw, rh), angle = rect
-            length = max(rw, rh)
-            width = min(rw, rh)
-
-            if length < params.get("min_line_length", 15) or width > 20:
-                continue
-
-            box = cv2.boxPoints(rect)
-            box_pts = [(int(p[0]), int(p[1])) for p in box]
-            dx_long = box_pts[2][0] - box_pts[1][0]
-            dy_long = box_pts[2][1] - box_pts[1][1]
-            x1, y1 = int(cx - dx_long / 2), int(cy - dy_long / 2)
-            x2, y2 = int(cx + dx_long / 2), int(cy + dy_long / 2)
-
-            mean_bright = float(gray[component_mask > 0].mean()) if area > 0 else 0
-
-            det_results.append(DetectionResult(
-                x1=x1, y1=y1, x2=x2, y2=y2,
-                brightness=mean_bright,
-                score=min(length / 100.0, 1.0),
-                confidence=min(aspect / 10.0, 1.0),
-                width=width,
-                box_points=box_pts,
-            ))
 
         # 保存标注图
         output_dir = Path("storage/results") / "tune"
         output_dir.mkdir(parents=True, exist_ok=True)
-        annotated = draw_detections(image, det_results)
+        annotated = draw_detections(image, detections)
         result_path = output_dir / f"{path.stem}_detected.jpg"
         save_image(annotated, result_path)
 
         return {
-            "detections": len(det_results),
+            "detections": len(detections),
             "time": elapsed,
             "result_image": str(result_path),
             "params": params,
+            "results": [
+                {
+                    "x1": d.x1, "y1": d.y1, "x2": d.x2, "y2": d.y2,
+                    "brightness": d.brightness, "confidence": d.confidence,
+                    "score": d.score, "width": getattr(d, "width", 0.0),
+                    "object_class": getattr(d, "object_class", "unknown"),
+                }
+                for d in detections
+            ],
         }
 
     except Exception as e:

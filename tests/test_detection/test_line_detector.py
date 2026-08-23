@@ -79,3 +79,36 @@ class TestLineDetector:
         bgr = cv2.cvtColor(bright_line_image, cv2.COLOR_GRAY2BGR)
         results = detector.detect(bgr)
         assert len(results) > 0
+
+    def test_min_area_filters_small_blobs(self):
+        """min_area 较大的单个像素噪点应被过滤."""
+        img = np.zeros((100, 100), dtype=np.uint8)
+        img[50, 50] = 255     # 单像素
+        det = LineDetector(_config_loaded=True, min_area=10)
+        assert det.detect(img) == []
+
+    def test_min_aspect_filters_square_blobs(self):
+        """长宽比过小的方形连通域应被 min_aspect 过滤."""
+        img = np.zeros((100, 100), dtype=np.uint8)
+        cv2.circle(img, (50, 50), 10, 255, -1)     # 圆，长宽比约 1
+        det = LineDetector(_config_loaded=True, min_aspect=3.0)
+        slants = [r for r in det.detect(img) if abs(r.y1 - r.y2) > 5]
+        assert slants == []
+
+    def test_blur_kernel_size_even_is_safe(self):
+        """偶数模糊核应被安全处理（OpenCV 要求奇数 > 0）."""
+        img = np.zeros((200, 200), dtype=np.uint8)
+        cv2.line(img, (20, 100), (180, 100), 255, 2)
+        det = LineDetector(_config_loaded=True, blur_kernel_size=6)     # 偶数
+        assert isinstance(det.detect(img), list)
+
+    def test_detection_result_has_classification_fields(self):
+        """DetectionResult 默认带单帧分类字段."""
+        img = np.zeros((200, 200), dtype=np.uint8)
+        cv2.line(img, (20, 100), (180, 100), 255, 2)
+        results = LineDetector(_config_loaded=True).detect(img)
+        assert results
+        r = results[0]
+        assert r.object_class == "unknown"
+        assert r.classification_confidence == 0.0
+        assert r.classification_reasons == []
