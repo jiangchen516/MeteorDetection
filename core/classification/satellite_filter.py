@@ -25,7 +25,7 @@ class SatelliteFilter:
     """卫星过滤器 — 判断检测到的亮线是否可能是卫星."""
 
     def __init__(self, tle_dir: Optional[str | Path] = None):
-        self.tle_dir = Path(tle_dir) if tle_dir else get_path("outputs")
+        self.tle_dir = Path(tle_dir) if tle_dir else get_path("outputs_dir")
         self._satellites = None
 
     def check_detection(
@@ -60,9 +60,10 @@ class SatelliteFilter:
             satellites = load.tle_file(str(latest_tle))
 
             ts = load.timescale()
-            t = ts.from_astropy(
-                detection_time.replace(tzinfo=datetime.timezone.utc)
-            )
+            # from_datetime 接受时区感知的 datetime；naive 视为 UTC
+            aware = detection_time if detection_time.tzinfo else detection_time.replace(
+                tzinfo=datetime.timezone.utc)
+            t = ts.from_datetime(aware)
 
             for sat in satellites:
                 try:
