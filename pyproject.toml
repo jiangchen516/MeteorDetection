@@ -35,7 +35,10 @@ httpx = "^0.28"
 astroalign = "^2.6"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.0"
+pytest = "^9.0"
+# 注：poetry.lock 已滞后（锁定 pytest 8.4.2）且与 pyproject 脱节。
+# 当前 .venv 实测为 pytest 9.0.3，全部测试通过；请在有网环境执行
+# `poetry lock && poetry install` 同步 lock 文件。
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
