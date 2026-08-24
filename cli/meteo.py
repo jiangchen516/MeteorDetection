@@ -112,19 +112,26 @@ def fetch_tle(output, group, if_older, no_smoke):
         if not need:
             continue
 
-        url = f"https://celestrak.com/NORAD/elements/{g}.txt"
+        # 用 CelesTrac 现行域名 + gp.php 端点（.com 旧域名证书已过期且不再更新）
+        url = f"https://celestrak.org/NORAD/elements/gp.php?GROUP={g}&FORMAT=tle"
         click.echo(f"Downloading {url} ...")
         try:
             import requests
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
+            text = resp.text
+            lines = [ln for ln in text.strip().splitlines() if ln.strip()]
+            # 校验：拒绝 HTML 错误页；TLE 首行为卫星名且第二行以 ASCII '1' 开头
+            looks_tle = (
+                len(lines) >= 2
+                and not lines[0].lstrip().startswith(("<", "<?xml", "<!DOCTYPE"))
+                and lines[1].strip().startswith("1 ")
+            )
+            if not looks_tle:
+                raise RuntimeError(f"返回内容不是 TLE（{len(lines)} 行，疑似错误页）")
             # 先写临时文件，成功后原子替换，避免留下残缺文件
             tmp_file = tmp_root / f"TLE_{g}.txt"
             tmp_file.write_bytes(resp.content)
-            # 简单校验：至少应含 2 行 TLE 数据（首行卫星名）
-            lines = [ln for ln in resp.text.strip().splitlines() if ln.strip()]
-            if len(lines) < 1:
-                raise RuntimeError("返回内容为空或格式异常")
             tmp_file.replace(dest)
             downloaded.append(f"{g} ({len(lines)} 行)")
         except Exception as e:
@@ -151,10 +158,10 @@ def fetch_tle(output, group, if_older, no_smoke):
             tle_files = sorted(out_dir.glob("TLE*.txt"))
             if tle_files:
                 import skyfield.api as sfa
-                with sfa.load.open(str(tle_files[0])) as f:
-                    n_sats = len(sfa.load.tle_file(f))
+                n_sats = len(sfa.load.tle_file(str(tle_files[0])))
+                from datetime import timezone
                 likely, reasons = filter_.is_likely_satellite(
-                    datetime.now(), velocity=30.0, linearity=0.99,
+                    datetime.now(timezone.utc), velocity=30.0, linearity=0.99,
                 )
                 click.echo(
                     f"卫星比对冒烟: {tle_files[0].name} 含 {n_sats} 颗卫星, "
