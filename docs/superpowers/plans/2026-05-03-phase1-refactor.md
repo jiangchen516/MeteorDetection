@@ -1,6 +1,9 @@
 # Phase 1 — 基础重构 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:**
+> **状态：已完成（2026-08）** — 本 Phase 1 全部步骤已在代码中实现并通过测试，后续 Phase 2/3/4 也已落地，见 spec `2026-05-03-meteor-detection-redesign.md` §10。
+> 该文件 checkbox 已全部勾选。
+ REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 修复现有 Bug，搭建新目录结构，将现有代码提取为 `core/` 引擎，配置迁移到 YAML，增加 logging。
 
@@ -63,19 +66,19 @@
 - Create: `cli/__init__.py`
 - Create: `tests/__init__.py`, `tests/test_preprocessing/__init__.py`, `tests/test_detection/__init__.py`
 
-- [ ] **Step 1: 创建目录结构**
+- [x] **Step 1: 创建目录结构**
 
 ```bash
 mkdir -p core/preprocessing core/detection core/utils cli tests/test_preprocessing tests/test_detection storage/uploads storage/results storage/logs
 ```
 
-- [ ] **Step 2: 创建所有 __init__.py**
+- [x] **Step 2: 创建所有 __init__.py**
 
 ```bash
 touch core/__init__.py core/preprocessing/__init__.py core/detection/__init__.py core/utils/__init__.py cli/__init__.py tests/__init__.py tests/test_preprocessing/__init__.py tests/test_detection/__init__.py
 ```
 
-- [ ] **Step 3: 更新 pyproject.toml 添加新依赖**
+- [x] **Step 3: 更新 pyproject.toml 添加新依赖**
 
 在 `[tool.poetry.dependencies]` 部分添加：
 ```toml
@@ -88,17 +91,17 @@ pyyaml = "^6.0"
 pytest = "^8.0"
 ```
 
-- [ ] **Step 4: 安装依赖**
+- [x] **Step 4: 安装依赖**
 
 Run: `cd /Users/jiangc/python_workspace/meteo-detection && poetry install`
 Expected: 成功安装 pyyaml 和 pytest
 
-- [ ] **Step 5: 验证 pytest 可用**
+- [x] **Step 5: 验证 pytest 可用**
 
 Run: `poetry run pytest --version`
 Expected: pytest 8.x.x
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add pyproject.toml core/ cli/ tests/ poetry.lock
@@ -113,11 +116,11 @@ git commit -m "chore: create project structure and add dependencies"
 - Create: `config.yaml`
 - Create: `core/utils/config.py`
 
-- [ ] **Step 1: 创建 config.yaml**
+- [x] **Step 1: 创建 config.yaml**
 
 内容：项目所有配置项，包括路径（用相对路径）、算法参数（Hough、流星检测、轨迹跟踪、背景建模）。路径使用 `~` 或相对路径，运行时由配置加载器解析为绝对路径。
 
-- [ ] **Step 2: 编写 core/utils/config.py 配置加载器**
+- [x] **Step 2: 编写 core/utils/config.py 配置加载器**
 
 职责：
   - 从 `config.yaml` 加载配置
@@ -126,12 +129,12 @@ git commit -m "chore: create project structure and add dependencies"
   - 配置缺失或无效时抛出明确的错误
   - 支持环境变量覆盖（格式：`METEO__SECTION__KEY=value`）
 
-- [ ] **Step 3: 编写配置加载器的基本验证**
+- [x] **Step 3: 编写配置加载器的基本验证**
 
 Run: `poetry run python -c "from core.utils.config import load_config; c = load_config(); print(c)"`
 Expected: 打印完整配置，路径为绝对路径，无异常
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add config.yaml core/utils/config.py
@@ -145,7 +148,7 @@ git commit -m "feat: migrate config from Python module to YAML with validation"
 **Files:**
 - Create: `core/utils/logging.py`
 
-- [ ] **Step 1: 编写日志配置模块**
+- [x] **Step 1: 编写日志配置模块**
 
 职责：
   - 配置 root logger，同时输出到控制台和文件
@@ -154,12 +157,12 @@ git commit -m "feat: migrate config from Python module to YAML with validation"
   - 提供 `get_logger(name)` 函数供各模块使用
   - DEBUG 级别写文件，INFO 级别输出控制台
 
-- [ ] **Step 2: 验证日志系统**
+- [x] **Step 2: 验证日志系统**
 
 Run: `poetry run python -c "from core.utils.logging import get_logger; log = get_logger('test'); log.info('hello'); log.debug('world')"`
 Expected: 控制台显示 INFO 消息，storage/logs/ 下的日志文件包含 DEBUG 和 INFO 消息
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add core/utils/logging.py
@@ -174,7 +177,7 @@ git commit -m "feat: add logging infrastructure with file rotation"
 - Create: `core/preprocessing/fisheye.py`
 - Test: `tests/test_preprocessing/test_fisheye.py`
 
-- [ ] **Step 1: 将 `src/rect_fisheye.py` 的逻辑迁移到 `core/preprocessing/fisheye.py`**
+- [x] **Step 1: 将 `src/rect_fisheye.py` 的逻辑迁移到 `core/preprocessing/fisheye.py`**
 
 改动：
   - 保留 `rectify_fisheye()` 函数核心逻辑
@@ -183,16 +186,16 @@ git commit -m "feat: add logging infrastructure with file rotation"
   - 添加类型注解
   - 添加 docstring
 
-- [ ] **Step 2: 编写基本测试**
+- [x] **Step 2: 编写基本测试**
 
 测试：用 `test/rectify_test/` 中的图片运行校正，验证输出文件存在且尺寸正确。
 
-- [ ] **Step 3: 运行测试**
+- [x] **Step 3: 运行测试**
 
 Run: `poetry run pytest tests/test_preprocessing/test_fisheye.py -v`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add core/preprocessing/fisheye.py tests/test_preprocessing/test_fisheye.py
@@ -206,7 +209,7 @@ git commit -m "feat: migrate fisheye correction to core/preprocessing"
 **Files:**
 - Create: `core/preprocessing/merge.py`
 
-- [ ] **Step 1: 将 `src/merge_pics.py` 的逻辑迁移到 `core/preprocessing/merge.py`**
+- [x] **Step 1: 将 `src/merge_pics.py` 的逻辑迁移到 `core/preprocessing/merge.py`**
 
 改动：
   - 保留 `merge_images()` 核心逻辑
@@ -214,16 +217,16 @@ git commit -m "feat: migrate fisheye correction to core/preprocessing"
   - 用 logging 替换 print
   - 增加输入验证（目录非空、图片格式检查）
 
-- [ ] **Step 2: 编写基本测试**
+- [x] **Step 2: 编写基本测试**
 
 测试：用 `test/merge_tests/` 中的图片运行叠加，验证输出文件存在。
 
-- [ ] **Step 3: 运行测试**
+- [x] **Step 3: 运行测试**
 
 Run: `poetry run pytest tests/ -v`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add core/preprocessing/merge.py
@@ -237,7 +240,7 @@ git commit -m "feat: migrate image merging to core/preprocessing"
 **Files:**
 - Create: `core/preprocessing/background.py`
 
-- [ ] **Step 1: 从 `src/image_identify.py` 中提取背景差分逻辑**
+- [x] **Step 1: 从 `src/image_identify.py` 中提取背景差分逻辑**
 
 将 `ImageSelector` 中的以下方法提取为独立函数：
   - `remove_noise_from_light_image()` → `remove_background()`
@@ -249,12 +252,12 @@ git commit -m "feat: migrate image merging to core/preprocessing"
   - `method='registration'`：配准 + 差分（原有逻辑）
   - 后续扩展：`method='mog2'`（Phase 3）
 
-- [ ] **Step 2: 用 `test/rectify_test/` 中的图片做集成测试**
+- [x] **Step 2: 用 `test/rectify_test/` 中的图片做集成测试**
 
 Run: `poetry run python -c "from core.preprocessing.background import remove_background; import cv2; ..."`
 Expected: 输出去噪后的图像，无异常
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add core/preprocessing/background.py
@@ -271,7 +274,7 @@ git commit -m "feat: extract background subtraction into core/preprocessing"
 
 这是最重要的重构任务，修复多个 Bug。
 
-- [ ] **Step 1: 从 `src/image_identify.py` 中提取直线检测逻辑，重构为 `core/detection/line_detector.py`**
+- [x] **Step 1: 从 `src/image_identify.py` 中提取直线检测逻辑，重构为 `core/detection/line_detector.py`**
 
 重构要点：
   - `detect_lines()` → `LineDetector.detect()`：统一返回 `DetectionResult` 列表（包含 x1, y1, x2, y2, brightness, confidence）
@@ -284,19 +287,19 @@ git commit -m "feat: extract background subtraction into core/preprocessing"
   - 用 logging 替换所有 print
   - Hough 参数从 config.yaml 读取
 
-- [ ] **Step 2: 编写测试**
+- [x] **Step 2: 编写测试**
 
 测试：
   - 用合成图像（画一条白线在黑色背景上）验证检测能检出直线
   - 验证无直线时返回空列表（不是 None）
   - 验证评分机制：亮线得分高，暗线得分低
 
-- [ ] **Step 3: 运行测试**
+- [x] **Step 3: 运行测试**
 
 Run: `poetry run pytest tests/test_detection/test_line_detector.py -v`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add core/detection/line_detector.py tests/test_detection/test_line_detector.py
@@ -310,7 +313,7 @@ git commit -m "feat: refactor line detector with scoring-based validation (fixes
 **Files:**
 - Create: `core/detection/tracker.py`
 
-- [ ] **Step 1: 将 `src/meteor_tracker.py` 迁移到 `core/detection/tracker.py`**
+- [x] **Step 1: 将 `src/meteor_tracker.py` 迁移到 `core/detection/tracker.py`**
 
 改动：
   - 保留 `MeteorTracker` 类全部逻辑
@@ -318,16 +321,16 @@ git commit -m "feat: refactor line detector with scoring-based validation (fixes
   - 用 logging 替换 print
   - 添加类型注解
 
-- [ ] **Step 2: 编写基本测试**
+- [x] **Step 2: 编写基本测试**
 
 测试：模拟 3 帧的直线输入，验证轨迹关联和流星确认逻辑。
 
-- [ ] **Step 3: 运行测试**
+- [x] **Step 3: 运行测试**
 
 Run: `poetry run pytest tests/ -v`
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add core/detection/tracker.py
@@ -341,7 +344,7 @@ git commit -m "feat: migrate meteor tracker to core/detection"
 **Files:**
 - Create: `core/detection/object_detector.py`
 
-- [ ] **Step 1: 将 `src/detect_image.py` 迁移到 `core/detection/object_detector.py`**
+- [x] **Step 1: 将 `src/detect_image.py` 迁移到 `core/detection/object_detector.py`**
 
 改动：
   - 保留 `detect_from_image()` 和 `extract_bboxes()` 核心逻辑
@@ -350,12 +353,12 @@ git commit -m "feat: migrate meteor tracker to core/detection"
   - 添加类型注解
   - 将 TF 模型加载改为懒加载（首次调用时加载，不在 import 时加载）
 
-- [ ] **Step 2: 验证模块可导入**
+- [x] **Step 2: 验证模块可导入**
 
 Run: `poetry run python -c "from core.detection.object_detector import detect_from_image; print('import ok')"`
 Expected: 打印 "import ok"，无异常
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add core/detection/object_detector.py
@@ -369,7 +372,7 @@ git commit -m "feat: migrate object detector to core/detection with lazy loading
 **Files:**
 - Create: `core/utils/image_io.py`
 
-- [ ] **Step 1: 编写图像读写工具**
+- [x] **Step 1: 编写图像读写工具**
 
 提供统一接口：
   - `load_image(path)` — 支持 JPG/PNG，返回 numpy array
@@ -377,7 +380,7 @@ git commit -m "feat: migrate object detector to core/detection with lazy loading
   - `save_image(img, path)` — 保存图像
   - `is_supported_format(path)` — 检查文件格式是否支持
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add core/utils/image_io.py
@@ -391,7 +394,7 @@ git commit -m "feat: add image I/O utility with RAW support"
 **Files:**
 - Create: `core/pipeline.py`
 
-- [ ] **Step 1: 编写检测流水线**
+- [x] **Step 1: 编写检测流水线**
 
 `MeteorPipeline` 类，步骤：
   1. `load_images()` — 从目录加载图片列表
@@ -402,11 +405,11 @@ git commit -m "feat: add image I/O utility with RAW support"
 
 每个步骤支持回调函数（用于向 Web 层推送进度）。
 
-- [ ] **Step 2: 编写端到端冒烟测试**
+- [x] **Step 2: 编写端到端冒烟测试**
 
 用 `test/rectify_test/` 中的少量图片跑完整流水线，验证不报错。
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add core/pipeline.py
@@ -421,7 +424,7 @@ git commit -m "feat: add detection pipeline orchestrator"
 - Create: `cli/meteo.py`
 - Modify: `pyproject.toml`（添加 `[tool.poetry.scripts]` 或 `[project.scripts]`）
 
-- [ ] **Step 1: 使用 Click 编写 CLI**
+- [x] **Step 1: 使用 Click 编写 CLI**
 
 命令：
   - `meteo detect-single <image>` — 单张检测
@@ -431,17 +434,17 @@ git commit -m "feat: add detection pipeline orchestrator"
 
 每个命令调用 `core/` 中对应的模块。
 
-- [ ] **Step 2: 验证 CLI**
+- [x] **Step 2: 验证 CLI**
 
 Run: `poetry run meteo --help`
 Expected: 显示所有子命令和帮助信息
 
-- [ ] **Step 3: 测试单张检测**
+- [x] **Step 3: 测试单张检测**
 
 Run: `poetry run meteo detect-single test/rectify_test/DSC03826.jpg`
 Expected: 输出检测结果，无异常
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add cli/meteo.py pyproject.toml
@@ -457,7 +460,7 @@ git commit -m "feat: add CLI entry point with Click"
 - Delete: `src/` 目录下所有文件（已迁移完毕）
 - Modify: `.gitignore`
 
-- [ ] **Step 1: 更新 .gitignore**
+- [x] **Step 1: 更新 .gitignore**
 
 添加：
 ```
@@ -468,19 +471,19 @@ __pycache__/
 .venv/
 ```
 
-- [ ] **Step 2: 删除旧文件**
+- [x] **Step 2: 删除旧文件**
 
 ```bash
 rm config.py main.py test.py
 rm -rf src/
 ```
 
-- [ ] **Step 3: 运行全量测试确认无断裂**
+- [x] **Step 3: 运行全量测试确认无断裂**
 
 Run: `poetry run pytest tests/ -v`
 Expected: 所有测试 PASS，无 import 错误
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -491,22 +494,22 @@ git commit -m "chore: clean up legacy files and update gitignore"
 
 ## Task 14: Phase 1 收尾验证
 
-- [ ] **Step 1: 运行全量测试**
+- [x] **Step 1: 运行全量测试**
 
 Run: `poetry run pytest tests/ -v`
 Expected: 全部 PASS
 
-- [ ] **Step 2: 运行 CLI 冒烟测试**
+- [x] **Step 2: 运行 CLI 冒烟测试**
 
 Run: `poetry run meteo detect-batch test/rectify_test/`
 Expected: 正常处理，输出结果到 storage/results/
 
-- [ ] **Step 3: 验证日志**
+- [x] **Step 3: 验证日志**
 
 Run: `ls storage/logs/`
 Expected: 存在日志文件，包含本次运行的日志
 
-- [ ] **Step 4: 最终 commit**
+- [x] **Step 4: 最终 commit**
 
 ```bash
 git add -A

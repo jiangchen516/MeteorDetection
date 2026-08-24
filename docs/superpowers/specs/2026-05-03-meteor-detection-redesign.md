@@ -1,7 +1,7 @@
 # 流星探测项目重新设计文档
 
 > 日期：2026-05-03
-> 状态：待实施
+> 状态：已实现（截至 2026-08，全部 4 个 Phase 均已落地；各 Phase 完成情况见 §10）
 
 ---
 
@@ -247,30 +247,37 @@ docker-compose.yml      # FastAPI + Celery Worker + Redis
 
 ## 10. 实施计划
 
-### Phase 1 — 基础重构（1-2 周）
-- 修复所有现有 Bug
-- 搭建新目录结构
-- 提取 `core/` 引擎（流水线、检测、跟踪）
-- 配置迁移到 YAML
-- 增加 logging
+> 完成状态：截至 2026-08，四个 Phase 的主体功能均已实现并通过测试（45+ 用例）。
+> 每项列出剩余的小缺口/待办。
 
-### Phase 2 — Web + 任务队列（1-2 周）
-- FastAPI + Celery + Redis 搭建
-- 基础 Web 界面（Dashboard + Upload + 任务详情）
-- 批量处理任务
-- Docker Compose 配置
+### Phase 1 — 基础重构 ✅
+- ~~修复所有现有 Bug~~（评分制替代 ROI 斜率验证等）
+- ~~搭建新目录结构~~（`core/ api/ worker/ cli/`）
+- ~~提取 `core/` 引擎（流水线、检测、跟踪）~~
+- ~~配置迁移到 YAML~~（`config.yaml` + `core/utils/config.py`）
+- ~~增加 logging~~（`core/utils/logging.py`）
+- 说明：原始实现计划见 `plans/2026-05-03-phase1-refactor.md`，步骤已全部勾选。
 
-### Phase 3 — 检测能力提升（1-2 周）
-- 背景建模增强（MOG2/中值帧）
-- 亮度验证 + 线段合并
-- EXIF 自动读取
-- RAW 格式支持
+### Phase 2 — Web + 任务队列 ✅
+- ~FastAPI + Celery + Redis 搭建~（`api/` + `worker/` + `docker-compose.yml`）
+- ~基础 Web 界面（Dashboard + Upload + 任务详情 + 调参页）~
+- ~批量处理任务~（`worker.tasks.process_batch`）
+- ~Docker Compose 配置~
 
-### Phase 4 — 分类 + 高级功能（1-2 周）
-- 流星/卫星/飞机分类
-- 卫星交叉验证
-- 实时检测模式
-- 历史记录搜索
+### Phase 3 — 检测能力提升 ✅
+- ~背景建模增强（MOG2/中值帧）~
+- ~亮度验证 + 线段合并~（综合评分 + 形态学闭/开运算）
+- ~EXIF 自动读取~
+- ~RAW 格式支持~
+- 说明：`score_threshold` 已从死配置改为真正生效，误报大幅下降；默认值 0.4 仍需真实流星图库校验。
+
+### Phase 4 — 分类 + 高级功能 ✅
+- ~流星/卫星/飞机分类~
+- ~卫星交叉验证~（`core/classification/satellite_filter.py`，TLE 比对）
+- ~实时检测模式~（`worker/runners/realtime.py`，文件夹监听）
+- ~历史记录搜索~（`history.html` + `/api/tasks/search/detections`）
+- 说明：检测分类已贯通落库（含轨迹级），详情页展示类别徽章。
+- 剩余小缺口：实时模式调用 `stop_realtime` 时依赖 `revoke` 强杀，尚未实现优雅停止；AI 模型（TF）为懒加载路径，未安装 TF 时不可用。
 
 ---
 
