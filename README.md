@@ -62,6 +62,11 @@ python -m cli.meteo rectify input.jpg output.jpg
 
 # 图像叠加
 python -m cli.meteo merge path/to/images/ output.jpg
+
+# 下载卫星 TLE 数据（供卫星识别交叉验证 / SatelliteFilter 使用）
+python -m cli.meteo fetch-tle --group visual --group stations
+# 仅刷新缺失或超过 7 天的 TLE
+python -m cli.meteo fetch-tle --if-older 7
 ```
 
 ## API 使用

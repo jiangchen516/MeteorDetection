@@ -79,14 +79,17 @@ def merge(directory, output):
               help="TLE 文件输出目录（默认 outputs/，与 SatelliteFilter 一致）")
 @click.option("--group", multiple=True,
               default=["visual", "stations", "weather", "amateur"],
-              help="从 CelesTrak 下载的分组（可多次指定），默认常用四组")
+              help="CelesTrac 分组（可多次指定，默认 visual/stations/weather/amateur，均可用）")
 @click.option("--if-older", type=int, default=7,
               help="仅当本地文件缺失或早于 N 天时下载，默认 7 天")
 @click.option("--no-smoke", is_flag=True, help="下载后跳过卫星比对冒烟测试")
 def fetch_tle(output, group, if_older, no_smoke):
-    """从 CelesTrak 下载卫星 TLE 数据到 outputs/（供 SatelliteFilter 使用）.
+    """从 CelesTrac 下载卫星 TLE 数据到 outputs/（供 SatelliteFilter 使用）.
 
+    数据源：https://celestrak.org/NORAD/elements/gp.php?GROUP=<分组>&FORMAT=tle
+    （注意用现行 .org 域名 + gp.php 端点；.com 旧域名证书已过期、路径已移除）。
     TLE 有效期约几天到几周，建议定期运行（如 --if-older 7）。
+    常见分组：visual / stations / weather / amateur / active 等。
     """
     from core.utils.config import get_path
     from datetime import datetime
