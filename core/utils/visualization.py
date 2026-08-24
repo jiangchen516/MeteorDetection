@@ -58,6 +58,9 @@ def draw_detections(
 
         # 信息文本
         texts = []
+        obj_cls = getattr(det, "object_class", None)
+        if obj_cls and obj_cls not in ("unknown", ""):
+            texts.append(obj_cls.upper())
         if show_score:
             texts.append(f"S:{det.confidence:.2f}")
         if show_brightness:
@@ -69,9 +72,11 @@ def draw_detections(
             label = " ".join(texts)
             mid_x = (det.x1 + det.x2) // 2
             mid_y = (det.y1 + det.y2) // 2
+            # 流星类别用醒目的亮青色强调
+            label_color = (220, 255, 0) if obj_cls == "meteor" else color
             cv2.putText(
                 annotated, label, (mid_x - 20, mid_y - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1,
+                cv2.FONT_HERSHEY_SIMPLEX, 0.4, label_color, 1,
             )
 
     # 汇总信息
