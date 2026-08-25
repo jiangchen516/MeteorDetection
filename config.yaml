@@ -17,6 +17,14 @@ test_paths:
   coords_file: outputs/coords.csv
   line_detection_output: test/line_detection
 
+# 观测点位置（用于卫星交叉验证 / TLE 过境判定）
+# 请改成你实际拍摄地点的经纬度与海拔
+observer:
+  latitude: 39.9042    # 北纬为正；南纬为负
+  longitude: 116.4074  # 东经为正
+  elevation_m: 50      # 海拔（米）
+  min_elevation: 10    # 判定"过境"的最低地平仰角（度）
+
 # Hough 直线检测参数
 hough_line:
   rho: 1

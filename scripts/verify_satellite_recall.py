@@ -26,9 +26,12 @@ from pathlib import Path
 
 from core.pipeline import MeteorPipeline
 from core.classification.satellite_filter import SatelliteFilter
+from core.utils.config import get_section
 
 TLE_FILE = Path("outputs/TLE_stations.txt")
-OBS_LAT, OBS_LON = 39.9042, 116.4074  # 假想观测点（北京）
+_obs = get_section("observer")
+OBS_LAT = float(_obs.get("latitude", 39.9042))
+OBS_LON = float(_obs.get("longitude", 116.4074))
 PEAK_UTC = datetime(2026, 8, 24, 18, 26, 2, tzinfo=timezone.utc)  # ISS 峰值时刻
 AZ0, ALT0 = 352.0, 57.0  # 镜头指向（az/el 度）
 W, H = 1200, 800

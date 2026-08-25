@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from core.utils.config import get_path
+from core.utils.config import get_path, get_section
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -17,15 +17,25 @@ class SatellitePass:
     name: str
     rise_time: datetime.datetime
     set_time: datetime.datetime
-    max_elevation: float
-    direction: str  # N→S, S→N, etc.
+    max_elevation: float  # 相对观测者的最大地平仰角（度）
+    direction: str  # 过境方向，如 "N→S"，或 "az=xxx°→yyy°"
 
 
 class SatelliteFilter:
     """卫星过滤器 — 判断检测到的亮线是否可能是卫星."""
 
-    def __init__(self, tle_dir: Optional[str | Path] = None):
+    def __init__(
+        self,
+        tle_dir: Optional[str | Path] = None,
+        observer: Optional[dict] = None,
+    ):
         self.tle_dir = Path(tle_dir) if tle_dir else get_path("outputs_dir")
+        # 观测点：显式传入 > config['observer']（缺省北京，需用户改为真实地点）
+        obs = observer or get_section("observer")
+        self.obs_lat = float(obs.get("latitude", 39.9042))
+        self.obs_lon = float(obs.get("longitude", 116.4074))
+        self.obs_elev = float(obs.get("elevation_m", 50.0))
+        self.min_elevation = float(obs.get("min_elevation", 10.0))
         self._satellites = None
 
     def check_detection(
@@ -58,6 +68,7 @@ class SatelliteFilter:
 
             latest_tle = tle_files[-1]
             satellites = load.tle_file(str(latest_tle))
+            obs = wgs84.latlon(self.obs_lat, self.obs_lon, elevation_m=self.obs_elev)
 
             ts = load.timescale()
             # from_datetime 接受时区感知的 datetime；naive 视为 UTC
@@ -65,29 +76,50 @@ class SatelliteFilter:
                 tzinfo=datetime.timezone.utc)
             t = ts.from_datetime(aware)
 
+            # 过境窗口采样（前后各 5 分钟，寻找相对观测者的最大仰角）
+            half_w = datetime.timedelta(minutes=5)
+            t_prev = ts.from_datetime(aware - half_w)
+            t_next = ts.from_datetime(aware + half_w)
+
             for sat in satellites:
                 try:
-                    # 检查卫星是否在地平线以上
-                    geocentric = sat.at(t)
-                    subpoint = geocentric.subpoint()
-                    lat = subpoint.latitude.degrees
-                    lon = subpoint.longitude.degrees
-                    elevation_km = subpoint.elevation.km
-
-                    if elevation_km > 200:  # 低轨道卫星
-                        passes.append(SatellitePass(
-                            name=sat.name,
-                            rise_time=detection_time,
-                            set_time=detection_time,
-                            max_elevation=elevation_km,
-                            direction=f"lat={lat:.1f} lon={lon:.1f}",
-                        ))
+                    # 相对观测者的地平坐标（topocentric altaz）
+                    alt0, az0, _ = (sat - obs).at(t).altaz()
+                    el0 = alt0.degrees
+                    if el0 < self.min_elevation:
+                        continue
+                    # 峰值仰角
+                    alt_prev, _, _ = (sat - obs).at(t_prev).altaz()
+                    alt_next, _, _ = (sat - obs).at(t_next).altaz()
+                    max_el = max(el0, alt_prev.degrees, alt_next.degrees)
+                    # 过境方向（沿地平坐标系 az 变化）
+                    az_prev, _, _ = (sat - obs).at(t_prev).altaz()
+                    az_next, _, _ = (sat - obs).at(t_next).altaz()
+                    az_from = az_prev.degrees
+                    az_to = az_next.degrees
+                    az_from = (az_from + 360) % 360
+                    az_to = (az_to + 360) % 360
+                    direction = f"az={az_from:.0f}°→{az_to:.0f}°"
+                    # 若提供了检测方向，做粗匹配（可选）
+                    if azimuth is not None and elevation is not None:
+                        daz = abs((az0.degrees - azimuth + 180) % 360 - 180)
+                        if daz > 90:  # 方向相差超过 90° 视为不匹配
+                            continue
+                    passes.append(SatellitePass(
+                        name=sat.name,
+                        rise_time=aware - half_w,
+                        set_time=aware + half_w,
+                        max_elevation=max_el,
+                        direction=direction,
+                    ))
                 except Exception:
                     continue
 
         except Exception as e:
             logger.warning(f"Satellite check failed: {e}")
 
+        # 按仰角降序
+        passes.sort(key=lambda p: p.max_elevation, reverse=True)
         return passes
 
     def is_likely_satellite(
