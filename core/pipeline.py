@@ -197,6 +197,7 @@ class MeteorPipeline:
                 "score": d.score, "merged_count": d.merged_count,
                 "object_class": d.object_class, "classification_confidence": d.classification_confidence,
                 "classification_reasons": d.classification_reasons,
+                "datetime_taken": meta.datetime_taken,
             }
             for d in detections
         ]
@@ -240,6 +241,7 @@ class MeteorPipeline:
 
         all_results = []
         self.tracker.reset()
+        frame_times: list = []  # 每帧的拍摄时间（datetime 或 None）
 
         for i, img_path in enumerate(images):
             fraction = 0.1 + 0.8 * (i / len(images))
@@ -249,6 +251,8 @@ class MeteorPipeline:
                 img_path, output_dir / img_path.stem,
                 force_background=None if use_median_bg else "estimate",
             )
+            t_dt = next((r.get("datetime_taken") for r in results if r.get("datetime_taken")), None)
+            frame_times.append(t_dt)
             for r in results:
                 r["image"] = str(img_path)
             all_results.extend(results)
@@ -257,17 +261,51 @@ class MeteorPipeline:
             lines = [(r["x1"], r["y1"], r["x2"], r["y2"]) for r in results]
             self.tracker.update(lines, i)
 
-        # 分类确认的流星
+        # 确认所有轨迹（含序列结束时的末段轨迹）
+        self.tracker.flush()
+        # 分类确认的流星 / 卫星（含 TLE 交叉验证）
         self._report("Classifying trajectories", 0.95)
+        try:
+            from core.classification.satellite_filter import SatelliteFilter
+            sf = SatelliteFilter()  # 默认读 outputs/TLE*.txt；无 TLE 时 check_detection 返回 []
+        except Exception:
+            sf = None
         for meteor in self.tracker.confirmed_meteors:
             features = extract_trajectory_features(meteor["points"])
             classification = classify_trajectory(features)
             meteor["classification"] = classification.object_class.value
             meteor["classification_confidence"] = classification.confidence
             meteor["classification_reasons"] = classification.reasons
+
+            # TLE 卫星交叉验证：用轨迹首帧时间 + 运动特征查询匹配卫星
+            sat_matches: list[str] = []
+            if sf is not None:
+                try:
+                    t_idx = meteor["points"][0][4]
+                    t_dt = frame_times[t_idx] if 0 <= t_idx < len(frame_times) else frame_times[-1]
+                    if t_dt is not None:
+                        passes = sf.check_detection(t_dt)
+                        if passes:
+                            sat_matches = [p.name for p in passes]
+                        # 若判定为卫星，则并入分类理由并覆盖类别（有 TLE 证据更可信）
+                        is_sat, sat_reasons = sf.is_likely_satellite(
+                            t_dt, meteor["velocity"], meteor["linearity"])
+                        if is_sat:
+                            classification_matches = classify_trajectory(
+                                features, satellite_matches=sat_matches)
+                            if classification_matches.object_class.value == "satellite":
+                                meteor["classification"] = "satellite"
+                                meteor["classification_confidence"] = max(
+                                    classification.confidence,
+                                    classification_matches.confidence)
+                                meteor["classification_reasons"] = (
+                                    meteor["classification_reasons"]
+                                    + sat_reasons)
+                except Exception:
+                    pass
             logger.info(
-                f"Trajectory {meteor['id']}: {classification.object_class.value} "
-                f"(conf={classification.confidence:.2f})"
+                f"Trajectory {meteor['id']}: {meteor['classification']} "
+                f"(conf={meteor['classification_confidence']:.2f})"
             )
 
         self._report("Batch complete", 1.0)

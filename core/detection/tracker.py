@@ -32,14 +32,13 @@ class MeteorTracker:
         Returns:
             确认的流星轨迹列表.
         """
-        if not lines:
-            return []
+        if lines:
+            for line in lines:
+                if not self._is_assigned_to_trajectory(line, frame_id):
+                    self.trajectories[self.next_id].append((*line, frame_id))
+                    self.next_id += 1
 
-        for line in lines:
-            if not self._is_assigned_to_trajectory(line, frame_id):
-                self.trajectories[self.next_id].append((*line, frame_id))
-                self.next_id += 1
-
+        # 空帧也要清理：让超时轨迹及时确认/丢弃
         self._cleanup_trajectories(frame_id)
         return self.confirmed_meteors
 
@@ -80,33 +79,45 @@ class MeteorTracker:
         return angle_diff < angle_thresh and dist1 < dist_thresh and dist2 < dist_thresh
 
     def _cleanup_trajectories(self, current_frame_id: int) -> None:
-        cfg = get_section("tracking")
-        min_length = cfg.get("min_trajectory_length", 3)
-        linearity_thresh = cfg.get("linearity_threshold", 0.8)
-
         for traj_id in list(self.trajectories.keys()):
             points = self.trajectories[traj_id]
             if not points:
                 continue
-
             last_frame = points[-1][4]
             if current_frame_id - last_frame > self.max_gap:
-                if self._validate_trajectory(points, min_length, linearity_thresh):
-                    meteor_info = {
-                        "id": traj_id,
-                        "points": points,
-                        "length": len(points),
-                        "duration": points[-1][4] - points[0][4],
-                        "velocity": self._calculate_velocity(points),
-                        "linearity": self._calculate_linearity(points),
-                        "confidence": self._calculate_confidence(points),
-                    }
-                    self.confirmed_meteors.append(meteor_info)
-                    logger.info(
-                        f"Confirmed meteor {traj_id}: {len(points)} frames, "
-                        f"velocity={meteor_info['velocity']:.2f} px/frame"
-                    )
-                del self.trajectories[traj_id]
+                self._confirm_or_drop(traj_id)
+
+    def flush(self) -> None:
+        """序列结束时确认所有仍存活的轨迹（无论是否超时）."""
+        for traj_id in list(self.trajectories.keys()):
+            if self.trajectories[traj_id]:
+                self._confirm_or_drop(traj_id)
+
+    def _confirm_or_drop(self, traj_id: int) -> None:
+        """验证并确认一条轨迹；合格则加入 confirmed_meteors，随后移除.
+
+        不足 min_trajectory_length 或不满足线性度的轨迹会被丢弃。
+        """
+        cfg = get_section("tracking")
+        min_length = cfg.get("min_trajectory_length", 3)
+        linearity_thresh = cfg.get("linearity_threshold", 0.8)
+        points = self.trajectories.get(traj_id) or []
+        if points and self._validate_trajectory(points, min_length, linearity_thresh):
+            meteor_info = {
+                "id": traj_id,
+                "points": points,
+                "length": len(points),
+                "duration": points[-1][4] - points[0][4],
+                "velocity": self._calculate_velocity(points),
+                "linearity": self._calculate_linearity(points),
+                "confidence": self._calculate_confidence(points),
+            }
+            self.confirmed_meteors.append(meteor_info)
+            logger.info(
+                f"Confirmed meteor {traj_id}: {len(points)} frames, "
+                f"velocity={meteor_info['velocity']:.2f} px/frame"
+            )
+        self.trajectories.pop(traj_id, None)
 
     def _validate_trajectory(
         self, points: list[tuple], min_length: int, linearity_thresh: float
